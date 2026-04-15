@@ -55,6 +55,7 @@ export default `
       const enableSelection = window.enable_selection;
       const allowScriptedContent = window.allowScriptedContent || false;
       const allowPopups = window.allowPopups || false;
+      const LOCATION_GENERATION_CHARS = 2800;
 
       if (!file) {
         const reactNativeWebview = window.ReactNativeWebView !== undefined && window.ReactNativeWebView !== null ? window.ReactNativeWebView : window;
@@ -187,53 +188,73 @@ export default `
               : 0,
           }));
 
-          if (initialLocations) {
-            reactNativeWebview.postMessage(JSON.stringify({
-              type: "onLocationsReady",
-              epubKey: book.key(),
-              locations: initialLocations,
-              totalLocations: book.locations.total,
-              currentLocation: currentLocation,
-              progress: currentLocation?.start?.cfi
-                ? book.locations.percentageFromCfi(currentLocation.start.cfi)
-                : 0,
-            }));
-            return Promise.resolve();
-          }
+          // Defer heavier work to let the onReady bridge message be delivered first.
+          setTimeout(function () {
+            if (initialLocations && initialLocations.length) {
+              reactNativeWebview.postMessage(JSON.stringify({
+                type: "onLocationsReady",
+                epubKey: book.key(),
+                locations: initialLocations,
+                totalLocations: book.locations.total,
+                currentLocation: currentLocation,
+                progress: currentLocation?.start?.cfi
+                  ? book.locations.percentageFromCfi(currentLocation.start.cfi)
+                  : 0,
+              }));
+            } else {
+              // Larger chunk size reduces startup cost for the first locations map.
+              book.locations.generate(LOCATION_GENERATION_CHARS).then(function () {
+                var generatedLocation = rendition.currentLocation() || currentLocation;
+                reactNativeWebview.postMessage(JSON.stringify({
+                  type: "onLocationsReady",
+                  epubKey: book.key(),
+                  locations: book.locations.save(),
+                  totalLocations: book.locations.total,
+                  currentLocation: generatedLocation,
+                  progress: generatedLocation?.start?.cfi
+                    ? book.locations.percentageFromCfi(generatedLocation.start.cfi)
+                    : 0,
+                }));
+              }).catch(function () {
+                reactNativeWebview.postMessage(JSON.stringify({
+                  type: "onLocationsReady",
+                  epubKey: book.key(),
+                  locations: [],
+                  totalLocations: book.locations.total,
+                  currentLocation: currentLocation,
+                  progress: 0,
+                }));
+              });
+            }
 
-          return book.locations.generate(1600).then(function () {
-            var generatedLocation = rendition.currentLocation() || currentLocation;
-            reactNativeWebview.postMessage(JSON.stringify({
-              type: "onLocationsReady",
-              epubKey: book.key(),
-              locations: book.locations.save(),
-              totalLocations: book.locations.total,
-              currentLocation: generatedLocation,
-              progress: generatedLocation?.start?.cfi
-                ? book.locations.percentageFromCfi(generatedLocation.start.cfi)
-                : 0,
-            }));
-          }).catch(function () {
-            reactNativeWebview.postMessage(JSON.stringify({
-              type: "onLocationsReady",
-              epubKey: book.key(),
-              locations: [],
-              totalLocations: book.locations.total,
-              currentLocation: currentLocation,
-              progress: 0,
-            }));
-          });
-
-          book
-          .coverUrl()
-          .then(async (url) => {
-            var reader = new FileReader();
-            reader.onload = (res) => {
+            book
+            .coverUrl()
+            .then(async (url) => {
+              var reader = new FileReader();
+              reader.onload = () => {
+                reactNativeWebview.postMessage(
+                  JSON.stringify({
+                    type: "meta",
+                    metadata: {
+                      cover: reader.result,
+                      author: book.package.metadata.creator,
+                      title: book.package.metadata.title,
+                      description: book.package.metadata.description,
+                      language: book.package.metadata.language,
+                      publisher: book.package.metadata.publisher,
+                      rights: book.package.metadata.rights,
+                    },
+                  })
+                );
+              };
+              reader.readAsDataURL(await fetch(url).then((res) => res.blob()));
+            })
+            .catch(() => {
               reactNativeWebview.postMessage(
                 JSON.stringify({
                   type: "meta",
                   metadata: {
-                    cover: reader.result,
+                    cover: undefined,
                     author: book.package.metadata.creator,
                     title: book.package.metadata.title,
                     description: book.package.metadata.description,
@@ -243,33 +264,16 @@ export default `
                   },
                 })
               );
-            };
-            reader.readAsDataURL(await fetch(url).then((res) => res.blob()));
-          })
-          .catch(() => {
-            reactNativeWebview.postMessage(
-              JSON.stringify({
-                type: "meta",
-                metadata: {
-                  cover: undefined,
-                  author: book.package.metadata.creator,
-                  title: book.package.metadata.title,
-                  description: book.package.metadata.description,
-                  language: book.package.metadata.language,
-                  publisher: book.package.metadata.publisher,
-                  rights: book.package.metadata.rights,
-                },
-              })
-            );
-          });
+            });
 
-          book.loaded.navigation.then(function (item) {
-            reactNativeWebview.postMessage(JSON.stringify({
-              type: 'onNavigationLoaded',
-              toc: item.toc,
-              landmarks: item.landmarks
-            }));
-          });
+            book.loaded.navigation.then(function (item) {
+              reactNativeWebview.postMessage(JSON.stringify({
+                type: 'onNavigationLoaded',
+                toc: item.toc,
+                landmarks: item.landmarks
+              }));
+            });
+          }, 0);
         })
         .catch(function (err) {
           reactNativeWebview.postMessage(JSON.stringify({

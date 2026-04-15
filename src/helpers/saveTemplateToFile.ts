@@ -18,3 +18,8 @@ export const checkTemplateFileExists = (fileName: string) => {
   const htmlFile = new File(Paths.document, fileName);
   return htmlFile.exists;
 };
+
+export const getTemplateFileUri = (fileName: string) => {
+  const htmlFile = new File(Paths.document, fileName);
+  return htmlFile.uri;
+};

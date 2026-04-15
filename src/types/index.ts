@@ -76,6 +76,8 @@ export interface GestureHandlerProps {
 export type ReaderProps = {
   src: string;
   initialLocation?: string;
+  beginAt?: number;
+  waitForLocationsReady?: boolean;
   onLocationChange?: (data: LocationChangeData) => void;
   onLocationsReady?: (epubKey: string, locations: ePubCfi[]) => void;
   onFinish?: () => void;

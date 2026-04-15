@@ -2,41 +2,58 @@ import type { Theme } from '../types';
 
 export const defaultTheme: Theme = {
   'body': {
-    background: '#FFF',
+    background: '#211F26',
   },
   'span': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'p': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'li': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'h1': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'h2': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'h3': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'h4': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'h5': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'h6': {
-    color: '#000',
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
   },
   'a': {
-    'color': '#000',
+    'color': '#ffffff !important',
+    'backgroundColor': '#211F26',
     'pointer-events': 'auto',
     'cursor': 'pointer',
   },
+  '*': {
+    color: '#ffffff !important',
+    backgroundColor: '#211F26',
+  },
   '::selection': {
     background: 'lightskyblue',
+  },
+  '::marker': {
+    color: '#ffffff !important',
   },
 };

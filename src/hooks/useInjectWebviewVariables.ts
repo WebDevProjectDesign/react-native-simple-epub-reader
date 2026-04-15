@@ -12,6 +12,7 @@ export function useInjectWebViewVariables() {
       book,
       allowScriptedContent,
       theme,
+      locations,
     }: {
       jszip: string;
       epubjs: string;
@@ -19,7 +20,11 @@ export function useInjectWebViewVariables() {
       book: string;
       allowScriptedContent?: boolean;
       theme: Theme;
+      locations?: string[];
     }) => {
+      const initialLocations =
+        locations && locations.length > 0 ? JSON.stringify(locations) : 'null';
+
       return template
         .replace(
           /<script id="jszip"><\/script>/,
@@ -43,6 +48,10 @@ export function useInjectWebViewVariables() {
         .replace(
           /const theme = window.theme;/,
           `const theme = ${JSON.stringify(theme)};`
+        )
+        .replace(
+          /const initialLocations = window.locations;/,
+          `const initialLocations = ${initialLocations};`
         );
     },
     []

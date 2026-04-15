@@ -9,7 +9,11 @@ import {
   useState,
 } from 'react';
 import { loadScripts } from '../helpers/loadScripts';
-import { saveTemplateToFile } from '../helpers/saveTemplateToFile';
+import {
+  checkTemplateFileExists,
+  getTemplateFileUri,
+  saveTemplateToFile,
+} from '../helpers/saveTemplateToFile';
 import { downloadEpub } from '../helpers/downloadEpub';
 import { Paths } from 'expo-file-system';
 import { useInjectWebViewVariables } from '../hooks/useInjectWebviewVariables';
@@ -29,6 +33,8 @@ const Reader = ({
   onSwipeLeft,
   onSwipeRight,
   initialLocation,
+  beginAt,
+  waitForLocationsReady = false,
   onLocationsReady = () => {},
   onLocationChange = () => {},
   onFinish = () => {},
@@ -39,6 +45,14 @@ const Reader = ({
 }: ReaderProps) => {
   const [templateUri, setTemplateUri] = useState<string>('');
   const pinchStartFontSizeRef = useRef<number | null>(null);
+  const hasAppliedBeginAtRef = useRef(false);
+  const templateAssetsRef = useRef<{
+    jszip: string;
+    epubjs: string;
+    localEpubUri: string;
+  } | null>(null);
+  const hasPersistedLocationsRef = useRef(false);
+  const hasLocationsReadyRef = useRef(false);
 
   const {
     registerBook,
@@ -60,6 +74,30 @@ const Reader = ({
 
   const { injectWebViewVariables } = useInjectWebViewVariables();
   const bookRef = useRef<WebView | null>(null);
+
+  const goToProgress = useCallback((progress: number) => {
+    const normalizedProgress =
+      progress > 1
+        ? Math.min(Math.max(progress / 100, 0), 1)
+        : Math.min(Math.max(progress, 0), 1);
+
+    bookRef.current?.injectJavaScript(`
+      if (
+        typeof rendition !== 'undefined' &&
+        rendition &&
+        typeof book !== 'undefined' &&
+        book &&
+        book.locations &&
+        typeof book.locations.cfiFromPercentage === 'function'
+      ) {
+        const targetCfi = book.locations.cfiFromPercentage(${normalizedProgress});
+        if (targetCfi) {
+          rendition.display(targetCfi);
+        }
+      }
+      true;
+    `);
+  }, []);
 
   const onMessage = (event: any) => {
     let parsedEvent;
@@ -99,14 +137,60 @@ const Reader = ({
         break;
       case 'onLocationsReady':
         const props = parsedEvent;
+        hasLocationsReadyRef.current = true;
         setLocations(parsedEvent.locations);
         setTotalLocations(props.totalLocations);
         setCurrentLocation(props.currentLocation);
         setProgress(props.progress);
-
-        return onLocationsReady(props.epubKey, parsedEvent.locations);
-      case 'onReady':
         setIsLoading(false);
+
+        if (
+          typeof beginAt === 'number' &&
+          !initialLocation &&
+          !hasAppliedBeginAtRef.current
+        ) {
+          goToProgress(beginAt);
+          hasAppliedBeginAtRef.current = true;
+        }
+
+        onLocationsReady(props.epubKey, parsedEvent.locations);
+
+        if (
+          parsedEvent.locations?.length &&
+          templateAssetsRef.current &&
+          !hasPersistedLocationsRef.current
+        ) {
+          setTimeout(() => {
+            const assets = templateAssetsRef.current;
+            if (!assets) return;
+
+            try {
+              const generatedTemplateWithLocations = injectWebViewVariables({
+                jszip: assets.jszip,
+                epubjs: assets.epubjs,
+                type: SourceType.EPUB,
+                allowScriptedContent: true,
+                book: assets.localEpubUri,
+                theme: initialTheme,
+                locations: parsedEvent.locations,
+              });
+
+              saveTemplateToFile(
+                generatedTemplateWithLocations,
+                htmlTemplateName
+              );
+              hasPersistedLocationsRef.current = true;
+            } catch (persistError) {
+              console.warn('Failed to persist cached locations:', persistError);
+            }
+          }, 0);
+        }
+
+        break;
+      case 'onReady':
+        if (!waitForLocationsReady) {
+          setIsLoading(false);
+        }
         if (initialLocation) {
           goToLocation(initialLocation);
         }
@@ -207,12 +291,24 @@ const Reader = ({
       try {
         setIsLoading(true);
         setTemplateUri('');
+        hasAppliedBeginAtRef.current = false;
+        hasPersistedLocationsRef.current = false;
+        hasLocationsReadyRef.current = false;
 
         const [, jszip, epubjs] = await loadScripts();
 
         if (!jszip || !epubjs) throw new Error('Failed to load scripts');
 
         const localEpubUri = await downloadEpub(src, epubFileName);
+
+        templateAssetsRef.current = { jszip, epubjs, localEpubUri };
+
+        if (checkTemplateFileExists(htmlTemplateName)) {
+          if (isMounted) {
+            setTemplateUri(getTemplateFileUri(htmlTemplateName));
+          }
+          return;
+        }
 
         const generatedTemplate = injectWebViewVariables({
           jszip,
@@ -284,6 +380,11 @@ const Reader = ({
           allowFileAccess
           javaScriptCanOpenWindowsAutomatically
           onMessage={onMessage}
+          onLoadEnd={() => {
+            if (!waitForLocationsReady || hasLocationsReadyRef.current) {
+              setIsLoading(false);
+            }
+          }}
           style={styles.container}
         />
       </GestureHandler>
@@ -316,6 +417,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#ffffff',
   },
 });
 
