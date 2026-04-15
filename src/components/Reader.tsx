@@ -38,7 +38,7 @@ const Reader = ({
   onWebViewMessage,
 }: ReaderProps) => {
   const [templateUri, setTemplateUri] = useState<string>('');
-  const [isReaderReady, setIsReaderReady] = useState(false);
+  // const [isReaderReady, setIsReaderReady] = useState(false);
 
   const {
     registerBook,
@@ -108,7 +108,7 @@ const Reader = ({
 
         return onLocationsReady(props.epubKey, parsedEvent.locations);
       case 'onReady':
-        setIsReaderReady(true);
+        // setIsReaderReady(true);
         setIsLoading(false);
         if (initialLocation) {
           goToLocation(initialLocation);
@@ -139,13 +139,13 @@ const Reader = ({
   };
 
   const handleOnSwipeLeft = () => {
-    if (!isReaderReady) return;
+    // if (!isReaderReady) return;
     onSwipeLeft?.();
     goNext();
   };
 
   const handleOnSwipeRight = () => {
-    if (!isReaderReady) return;
+    // if (!isReaderReady) return;
     onSwipeRight?.();
     goPrevious();
   };
@@ -153,7 +153,7 @@ const Reader = ({
   const handleOnPinch = (
     e: GestureUpdateEvent<PinchGestureHandlerEventPayload>
   ) => {
-    if (!isReaderReady) return;
+    // if (!isReaderReady) return;
 
     const fontSizeValue = parseInt(fontSize.replace('pt', ''), 10);
 
@@ -166,14 +166,23 @@ const Reader = ({
     onPinch?.(e);
   };
 
-  const htmlTemplateName = useMemo(
-    () => src.split('/').pop()?.replace('.epub', '.html') || 'index.html',
-    [src]
-  );
+  const epubFileName = useMemo(() => {
+    const splited = src.split('/').pop() || 'book.epub';
+    const cleanName = splited.split('?')[0] || 'book.epub';
+    const decoded = decodeURIComponent(cleanName)
+      .replace(' ', '_')
+      .replace(',', '_')
+      .replace(/[^a-zA-Z0-9._-]/g, '');
 
-  const epubFileName = useMemo(
-    () => src.split('/').pop() || 'book.epub',
-    [src]
+    return decoded;
+  }, [src]);
+
+  const htmlTemplateName = useMemo(
+    () =>
+      epubFileName
+        .replace('.epub', '-template.html')
+        .replace('.zip', '-template.html'),
+    [epubFileName]
   );
 
   const handleBookRef = useCallback(
@@ -192,7 +201,7 @@ const Reader = ({
     const prepareReader = async () => {
       try {
         setIsLoading(true);
-        setIsReaderReady(false);
+        // setIsReaderReady(false);
         setTemplateUri('');
 
         const [, jszip, epubjs] = await loadScripts();
@@ -235,7 +244,7 @@ const Reader = ({
     setIsLoading,
   ]);
 
-  if (isLoading || !templateUri) {
+  if (!templateUri) {
     return LoaderComponent ? (
       <LoaderComponent />
     ) : (
@@ -247,7 +256,7 @@ const Reader = ({
   }
 
   return (
-    <>
+    <View style={styles.container}>
       <GestureHandler
         onSwipeLeft={handleOnSwipeLeft}
         onSwipeRight={handleOnSwipeRight}
@@ -272,7 +281,19 @@ const Reader = ({
           style={styles.container}
         />
       </GestureHandler>
-    </>
+
+      {isLoading &&
+        (LoaderComponent ? (
+          <View style={styles.loaderOverlay}>
+            <LoaderComponent />
+          </View>
+        ) : (
+          <View style={styles.loaderOverlay}>
+            <ActivityIndicator size="large" />
+            <Text>Przygotowuję książkę...</Text>
+          </View>
+        ))}
+    </View>
   );
 };
 
@@ -282,6 +303,11 @@ const styles = StyleSheet.create({
   },
   loaderContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
   },
