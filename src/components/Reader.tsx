@@ -38,6 +38,7 @@ const Reader = ({
   onWebViewMessage,
 }: ReaderProps) => {
   const [templateUri, setTemplateUri] = useState<string>('');
+  const [isReaderReady, setIsReaderReady] = useState(false);
 
   const {
     registerBook,
@@ -61,7 +62,14 @@ const Reader = ({
   const bookRef = useRef<WebView | null>(null);
 
   const onMessage = (event: any) => {
-    const parsedEvent = JSON.parse(event.nativeEvent.data);
+    let parsedEvent;
+    try {
+      parsedEvent = JSON.parse(event.nativeEvent.data);
+    } catch (error) {
+      console.warn('Failed to parse WebView message:', error);
+      return;
+    }
+
     console.log(parsedEvent.type);
 
     if (!INTERNAL_EVENTS.includes(parsedEvent?.type) && onWebViewMessage) {
@@ -100,9 +108,15 @@ const Reader = ({
 
         return onLocationsReady(props.epubKey, parsedEvent.locations);
       case 'onReady':
+        setIsReaderReady(true);
+        setIsLoading(false);
         if (initialLocation) {
           goToLocation(initialLocation);
         }
+        break;
+      case 'onDisplayError':
+        setIsLoading(false);
+        console.error('Reader display error:', parsedEvent.reason);
         break;
 
       case 'onBeginning':
@@ -125,11 +139,13 @@ const Reader = ({
   };
 
   const handleOnSwipeLeft = () => {
+    if (!isReaderReady) return;
     onSwipeLeft?.();
     goNext();
   };
 
   const handleOnSwipeRight = () => {
+    if (!isReaderReady) return;
     onSwipeRight?.();
     goPrevious();
   };
@@ -137,6 +153,8 @@ const Reader = ({
   const handleOnPinch = (
     e: GestureUpdateEvent<PinchGestureHandlerEventPayload>
   ) => {
+    if (!isReaderReady) return;
+
     const fontSizeValue = parseInt(fontSize.replace('pt', ''), 10);
 
     const scaleValue = e.scale > 1 ? e.scale * 0.5 : e.scale;
@@ -174,6 +192,8 @@ const Reader = ({
     const prepareReader = async () => {
       try {
         setIsLoading(true);
+        setIsReaderReady(false);
+        setTemplateUri('');
 
         const [, jszip, epubjs] = await loadScripts();
 
@@ -197,8 +217,9 @@ const Reader = ({
         }
       } catch (error) {
         console.error('Reader Error:', error);
-      } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -214,7 +235,7 @@ const Reader = ({
     setIsLoading,
   ]);
 
-  if (isLoading) {
+  if (isLoading || !templateUri) {
     return LoaderComponent ? (
       <LoaderComponent />
     ) : (

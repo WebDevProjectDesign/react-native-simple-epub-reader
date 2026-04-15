@@ -10,7 +10,7 @@ import type { ReaderContextProps } from './types';
 import { defaultTheme } from '../constants/theme';
 import type WebView from 'react-native-webview';
 import * as webViewInjectFunctions from '../helpers/webViewInjectFunctions';
-import type { ePubCfi, Flow, Location, Theme } from '../types';
+import type { ePubCfi, Location, Theme } from '../types';
 import { useReaderState } from '../hooks/useReaderState';
 import { Actions } from '../types/state.types';
 
@@ -123,8 +123,11 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
   const getMeta = useCallback(() => state.meta, [state.meta]);
   const changeFontFamily = useCallback((fontFamily: string) => {
     book.current?.injectJavaScript(`
-      rendition.themes.font('${fontFamily}');
-      rendition.views().forEach(view => view.pane ? view.pane.render() : null); true;
+      if (typeof rendition !== 'undefined' && rendition) {
+        rendition.themes.font('${fontFamily}');
+        rendition.views().forEach(view => view.pane ? view.pane.render() : null);
+      }
+      true;
     `);
     dispatch({ type: Actions.CHANGE_FONT_FAMILY, payload: fontFamily });
   }, []);
@@ -133,23 +136,14 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
     book.current?.injectJavaScript(script);
   }, []);
 
-  const changeFlow = useCallback((flow: Flow) => {
-    webViewInjectFunctions.injectJavaScript(
-      book,
-      `rendition.flow(${JSON.stringify(flow)}); true`
-    );
-    dispatch({ type: Actions.SET_FLOW, payload: flow });
-  }, []);
-
-  const setFlow = useCallback((flow: Flow) => {
-    dispatch({ type: Actions.SET_FLOW, payload: flow });
-  }, []);
-
   const changeTheme = useCallback((theme: Theme) => {
     book.current?.injectJavaScript(`
-      rendition.themes.register({ theme: ${JSON.stringify(theme)} });
-      rendition.themes.select('theme');
-      rendition.views().forEach(view => view.pane ? view.pane.render() : null); true;
+      if (typeof rendition !== 'undefined' && rendition) {
+        rendition.themes.register({ theme: ${JSON.stringify(theme)} });
+        rendition.themes.select('theme');
+        rendition.views().forEach(view => view.pane ? view.pane.render() : null);
+      }
+      true;
     `);
     dispatch({ type: Actions.CHANGE_THEME, payload: theme });
   }, []);
@@ -158,7 +152,9 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
     webViewInjectFunctions.injectJavaScript(
       book,
       `
-        rendition.next();
+        if (typeof rendition !== 'undefined' && rendition) {
+          rendition.next();
+        }
       `
     );
   }, []);
@@ -167,19 +163,29 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
     webViewInjectFunctions.injectJavaScript(
       book,
       `
-        rendition.prev();
+        if (typeof rendition !== 'undefined' && rendition) {
+          rendition.prev();
+        }
       `
     );
   }, []);
 
   const goToLocation = useCallback((targetCfi: ePubCfi) => {
-    book.current?.injectJavaScript(`rendition.display('${targetCfi}'); true`);
+    book.current?.injectJavaScript(`
+      if (typeof rendition !== 'undefined' && rendition) {
+        rendition.display('${targetCfi}');
+      }
+      true;
+    `);
   }, []);
 
   const changeFontSize = useCallback((size: string) => {
     book.current?.injectJavaScript(`
-      rendition.themes.fontSize('${size}');
-      rendition.views().forEach(view => view.pane ? view.pane.render() : null); true;
+      if (typeof rendition !== 'undefined' && rendition) {
+        rendition.themes.fontSize('${size}');
+        rendition.views().forEach(view => view.pane ? view.pane.render() : null);
+      }
+      true;
     `);
     dispatch({ type: Actions.CHANGE_FONT_SIZE, payload: size });
   }, []);
@@ -203,8 +209,6 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       setLocations,
       changeFontFamily,
       injectJavascript,
-      changeFlow,
-      setFlow,
       changeFontSize,
       theme: state.theme,
       flow: state.flow,
@@ -237,8 +241,6 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       setLocations,
       changeFontFamily,
       injectJavascript,
-      changeFlow,
-      setFlow,
       changeFontSize,
       state.theme,
       state.flow,
