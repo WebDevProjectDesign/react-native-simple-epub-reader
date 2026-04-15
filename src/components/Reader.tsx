@@ -21,6 +21,7 @@ import type {
   GestureUpdateEvent,
   PinchGestureHandlerEventPayload,
 } from 'react-native-gesture-handler';
+import INTERNAL_EVENTS from '../constants/internalEvents';
 
 const Reader = ({
   src,
@@ -34,6 +35,7 @@ const Reader = ({
   onBeginning = () => {},
   onPinch = () => {},
   LoaderComponent,
+  onWebViewMessage,
 }: ReaderProps) => {
   const [templateUri, setTemplateUri] = useState<string>('');
 
@@ -60,6 +62,11 @@ const Reader = ({
 
   const onMessage = (event: any) => {
     const parsedEvent = JSON.parse(event.nativeEvent.data);
+    console.log(parsedEvent.type);
+
+    if (!INTERNAL_EVENTS.includes(parsedEvent?.type) && onWebViewMessage) {
+      return onWebViewMessage(parsedEvent);
+    }
 
     switch (parsedEvent.type) {
       case 'onLocationChange':
