@@ -1,3 +1,8 @@
+import type {
+  GestureUpdateEvent,
+  PinchGestureHandlerEventPayload,
+} from 'react-native-gesture-handler';
+
 export interface LocationChangeData {
   totalLocations: number;
   currentLocation: Location;
@@ -62,6 +67,7 @@ export interface GestureHandlerProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   onTap?: () => void;
+  onPinch?: (e: GestureUpdateEvent<PinchGestureHandlerEventPayload>) => void;
 }
 
 export type ReaderProps = {
@@ -71,6 +77,7 @@ export type ReaderProps = {
   onLocationsReady?: (epubKey: string, locations: ePubCfi[]) => void;
   onFinish?: () => void;
   onBeginning?: () => void;
+  LoaderComponent?: React.ComponentType;
 } & GestureHandlerProps;
 
 export type Flow = 'paginated' | 'scrolled-doc';

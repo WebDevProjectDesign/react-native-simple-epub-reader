@@ -1,19 +1,10 @@
-import { View, StyleSheet } from 'react-native';
-import { Reader, ReaderProvider } from 'react-native-simple-epub-reader';
+import { ReaderProvider } from 'react-native-simple-epub-reader';
+import Viewer from './Viewer';
 
 export default function App() {
   return (
     <ReaderProvider>
-      <View style={styles.container}>
-        <Reader src="https://storage.googleapis.com/cdn.rtck.pl/30-twarzy-maryi/book/Ks-Mateusz-Dutkiewicz_30-twarzy-Maryi.epub" />
-      </View>
+      <Viewer />
     </ReaderProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-});

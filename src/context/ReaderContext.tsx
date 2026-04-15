@@ -1,4 +1,11 @@
-import { createContext, useCallback, useMemo, useReducer, useRef } from 'react';
+import {
+  createContext,
+  useCallback,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import type { ReaderContextProps } from './types';
 import { defaultTheme } from '../constants/theme';
 import type WebView from 'react-native-webview';
@@ -16,7 +23,6 @@ const ReaderContext = createContext<ReaderContextProps>({
   setMeta: () => {},
   setProgress: () => {},
   setLocations: () => {},
-  changeFontFamily: () => {},
 
   goToLocation: () => {},
   goPrevious: () => {},
@@ -53,15 +59,16 @@ const ReaderContext = createContext<ReaderContextProps>({
   injectJavascript: () => {},
   changeFontSize: () => {},
   changeTheme: () => {},
-  changeFlow: () => {},
-  setFlow: () => {},
-  flow: 'paginated',
   fontSize: '9pt',
+
+  isLoading: false,
+  setIsLoading: () => {},
 });
 
 function ReaderProvider({ children }: { children: React.ReactNode }) {
   const { bookReducer, initialState } = useReaderState();
   const [state, dispatch] = useReducer(bookReducer, initialState);
+  const [loading, setLoading] = useState<boolean>(true);
   const book = useRef<WebView | null>(null);
 
   const registerBook = useCallback((bookRef: WebView) => {
@@ -209,6 +216,8 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       meta: state.meta,
       progress: state.progress,
       locations: state.locations,
+      isLoading: loading,
+      setIsLoading: setLoading,
     }),
     [
       registerBook,
@@ -241,6 +250,8 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       state.meta,
       state.progress,
       state.locations,
+      loading,
+      setLoading,
     ]
   );
 

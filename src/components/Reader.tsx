@@ -17,6 +17,10 @@ import WebView from 'react-native-webview';
 import GestureHandler from './GestureHandler';
 import { defaultTheme as initialTheme } from '../constants/theme';
 import { ReaderContext } from '../context/ReaderContext';
+import type {
+  GestureUpdateEvent,
+  PinchGestureHandlerEventPayload,
+} from 'react-native-gesture-handler';
 
 const Reader = ({
   src,
@@ -28,9 +32,11 @@ const Reader = ({
   onLocationChange = () => {},
   onFinish = () => {},
   onBeginning = () => {},
+  onPinch = () => {},
+  LoaderComponent,
 }: ReaderProps) => {
   const [templateUri, setTemplateUri] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+
   const {
     registerBook,
     goNext,
@@ -43,6 +49,10 @@ const Reader = ({
     goToLocation,
     setAtEnd,
     setAtStart,
+    fontSize,
+    changeFontSize,
+    setIsLoading,
+    isLoading,
   } = useContext(ReaderContext);
 
   const { injectWebViewVariables } = useInjectWebViewVariables();
@@ -117,6 +127,20 @@ const Reader = ({
     goPrevious();
   };
 
+  const handleOnPinch = (
+    e: GestureUpdateEvent<PinchGestureHandlerEventPayload>
+  ) => {
+    const fontSizeValue = parseInt(fontSize.replace('pt', ''), 10);
+
+    const scaleValue = e.scale > 1 ? e.scale * 0.5 : e.scale;
+
+    const newFontSize = fontSizeValue * scaleValue;
+
+    const clampedFontSize = Math.min(Math.max(newFontSize, 6), 32);
+    changeFontSize(`${clampedFontSize}pt`);
+    onPinch?.(e);
+  };
+
   const htmlTemplateName = useMemo(
     () => src.split('/').pop()?.replace('.epub', '.html') || 'index.html',
     [src]
@@ -175,10 +199,18 @@ const Reader = ({
     return () => {
       isMounted = false;
     };
-  }, [src, htmlTemplateName, epubFileName, injectWebViewVariables]);
+  }, [
+    src,
+    htmlTemplateName,
+    epubFileName,
+    injectWebViewVariables,
+    setIsLoading,
+  ]);
 
   if (isLoading) {
-    return (
+    return LoaderComponent ? (
+      <LoaderComponent />
+    ) : (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" />
         <Text>Przygotowuję książkę...</Text>
@@ -192,6 +224,7 @@ const Reader = ({
         onSwipeLeft={handleOnSwipeLeft}
         onSwipeRight={handleOnSwipeRight}
         onTap={handleOnTap}
+        onPinch={handleOnPinch}
       >
         <WebView
           pointerEvents="none"

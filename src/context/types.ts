@@ -1,5 +1,5 @@
 import type WebView from 'react-native-webview';
-import type { ePubCfi, Flow, Location, Theme } from '../types';
+import type { ePubCfi, Location, Theme } from '../types';
 
 export type PaginateOptions = {
   keepScrollOffset?: boolean;
@@ -51,14 +51,12 @@ export interface ReaderContextProps {
     publisher: string;
     rights: string;
   };
+  isLoading?: boolean;
+  setIsLoading: (isLoading: boolean) => void;
   progress: number;
   locations: ePubCfi[];
   injectJavascript: (script: string) => void;
   changeFontSize: (fontSize: string) => void;
-  changeFontFamily: (fontFamily: string) => void;
   changeTheme: (theme: Theme) => void;
-  changeFlow: (flow: Flow) => void;
-  flow: Flow;
-  setFlow: (flow: Flow) => void;
   fontSize: string;
 }

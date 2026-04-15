@@ -2,37 +2,37 @@ import type { Theme } from '../types';
 
 export const defaultTheme: Theme = {
   'body': {
-    background: '#211F26',
+    background: '#FFF',
   },
   'span': {
-    color: '#fff !important',
+    color: '#000',
   },
   'p': {
-    color: '#fff !important',
+    color: '#000',
   },
   'li': {
-    color: '#fff !important',
+    color: '#000',
   },
   'h1': {
-    color: '#fff !important',
+    color: '#000',
   },
   'h2': {
-    color: '#fff !important',
+    color: '#000',
   },
   'h3': {
-    color: '#fff !important',
+    color: '#000',
   },
   'h4': {
-    color: '#fff !important',
+    color: '#000',
   },
   'h5': {
-    color: '#fff !important',
+    color: '#000',
   },
   'h6': {
-    color: '#fff !important',
+    color: '#000',
   },
   'a': {
-    'color': '#fff !important',
+    'color': '#000',
     'pointer-events': 'auto',
     'cursor': 'pointer',
   },
