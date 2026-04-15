@@ -38,7 +38,7 @@ const Reader = ({
   onWebViewMessage,
 }: ReaderProps) => {
   const [templateUri, setTemplateUri] = useState<string>('');
-  // const [isReaderReady, setIsReaderReady] = useState(false);
+  const pinchStartFontSizeRef = useRef<number | null>(null);
 
   const {
     registerBook,
@@ -69,8 +69,6 @@ const Reader = ({
       console.warn('Failed to parse WebView message:', error);
       return;
     }
-
-    console.log(parsedEvent.type);
 
     if (!INTERNAL_EVENTS.includes(parsedEvent?.type) && onWebViewMessage) {
       return onWebViewMessage(parsedEvent);
@@ -108,7 +106,6 @@ const Reader = ({
 
         return onLocationsReady(props.epubKey, parsedEvent.locations);
       case 'onReady':
-        // setIsReaderReady(true);
         setIsLoading(false);
         if (initialLocation) {
           goToLocation(initialLocation);
@@ -139,13 +136,11 @@ const Reader = ({
   };
 
   const handleOnSwipeLeft = () => {
-    // if (!isReaderReady) return;
     onSwipeLeft?.();
     goNext();
   };
 
   const handleOnSwipeRight = () => {
-    // if (!isReaderReady) return;
     onSwipeRight?.();
     goPrevious();
   };
@@ -153,17 +148,27 @@ const Reader = ({
   const handleOnPinch = (
     e: GestureUpdateEvent<PinchGestureHandlerEventPayload>
   ) => {
-    // if (!isReaderReady) return;
+    if (pinchStartFontSizeRef.current === null) {
+      pinchStartFontSizeRef.current = parseFloat(fontSize.replace('pt', ''));
+    }
 
-    const fontSizeValue = parseInt(fontSize.replace('pt', ''), 10);
+    const baseFontSize = pinchStartFontSizeRef.current;
+    const sensitivity = 0.5;
+    const adjustedScale = 1 + (e.scale - 1) * sensitivity;
+    const scaledFontSize = baseFontSize * adjustedScale;
+    const clampedFontSize = Math.min(Math.max(scaledFontSize, 9), 32);
+    const smoothedFontSize = Math.round(clampedFontSize * 2) / 2;
 
-    const scaleValue = e.scale > 1 ? e.scale * 0.5 : e.scale;
-
-    const newFontSize = fontSizeValue * scaleValue;
-
-    const clampedFontSize = Math.min(Math.max(newFontSize, 6), 32);
-    changeFontSize(`${clampedFontSize}pt`);
+    changeFontSize(`${smoothedFontSize}pt`);
     onPinch?.(e);
+  };
+
+  const handleOnPinchStart = () => {
+    pinchStartFontSizeRef.current = parseFloat(fontSize.replace('pt', ''));
+  };
+
+  const handleOnPinchEnd = () => {
+    pinchStartFontSizeRef.current = null;
   };
 
   const epubFileName = useMemo(() => {
@@ -201,7 +206,6 @@ const Reader = ({
     const prepareReader = async () => {
       try {
         setIsLoading(true);
-        // setIsReaderReady(false);
         setTemplateUri('');
 
         const [, jszip, epubjs] = await loadScripts();
@@ -261,7 +265,9 @@ const Reader = ({
         onSwipeLeft={handleOnSwipeLeft}
         onSwipeRight={handleOnSwipeRight}
         onTap={handleOnTap}
+        onPinchStart={handleOnPinchStart}
         onPinch={handleOnPinch}
+        onPinchEnd={handleOnPinchEnd}
       >
         <WebView
           pointerEvents="none"

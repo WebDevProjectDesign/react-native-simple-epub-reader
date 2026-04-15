@@ -13,7 +13,9 @@ const GestureHandler: FC<PropsWithChildren<GestureHandlerProps>> = ({
   onSwipeLeft,
   onSwipeRight,
   onTap,
+  onPinchStart,
   onPinch,
+  onPinchEnd,
 }) => {
   const swipeLeftGesture = Gesture.Fling()
     .runOnJS(true)
@@ -38,8 +40,14 @@ const GestureHandler: FC<PropsWithChildren<GestureHandlerProps>> = ({
 
   const pinchGesture = Gesture.Pinch()
     .runOnJS(true)
+    .onStart(() => {
+      onPinchStart?.();
+    })
     .onUpdate((e) => {
       onPinch?.(e);
+    })
+    .onEnd(() => {
+      onPinchEnd?.();
     });
 
   const combinedGesture = Gesture.Race(

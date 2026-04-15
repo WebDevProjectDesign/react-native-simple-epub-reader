@@ -17,8 +17,6 @@ export const downloadEpub = async (
       throw new Error('Invalid URL provided for EPUB download.');
     }
 
-    console.log({ url });
-
     const downloadedFile = await File.downloadFileAsync(normalized, file);
 
     return downloadedFile.uri;

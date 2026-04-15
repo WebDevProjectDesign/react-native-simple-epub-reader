@@ -67,7 +67,9 @@ export interface GestureHandlerProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   onTap?: () => void;
+  onPinchStart?: () => void;
   onPinch?: (e: GestureUpdateEvent<PinchGestureHandlerEventPayload>) => void;
+  onPinchEnd?: () => void;
   onWebViewMessage?: (event: any) => void;
 }
 
