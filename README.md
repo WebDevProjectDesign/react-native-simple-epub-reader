@@ -65,20 +65,26 @@ export function Viewer() {
 
 ### Props
 
-| Prop               | Type                           | Required | Description                                              |
-| ------------------ | ------------------------------ | -------- | -------------------------------------------------------- |
-| `src`              | `string`                       | Yes      | Remote URL to an `.epub` file.                           |
-| `initialLocation`  | `string`                       | No       | Initial CFI location (`epubcfi(...)`).                   |
-| `onTap`            | `() => void`                   | No       | Called on tap gesture.                                   |
-| `onSwipeLeft`      | `() => void`                   | No       | Called before built-in `goNext()`.                       |
-| `onSwipeRight`     | `() => void`                   | No       | Called before built-in `goPrevious()`.                   |
-| `onPinch`          | `(e) => void`                  | No       | Called on pinch gesture.                                 |
-| `onLocationChange` | `(data) => void`               | No       | Reading position/progress update.                        |
-| `onLocationsReady` | `(epubKey, locations) => void` | No       | Called when locations are generated.                     |
-| `onBeginning`      | `() => void`                   | No       | Called when user reaches beginning of the book.          |
-| `onFinish`         | `() => void`                   | No       | Called when user reaches end of the book.                |
-| `onWebViewMessage` | `(event) => void`              | No       | Receives custom WebView messages not handled internally. |
-| `LoaderComponent`  | `React.ComponentType`          | No       | Custom loading component.                                |
+| Prop                    | Type                           | Required | Description                                              |
+| ----------------------- | ------------------------------ | -------- | -------------------------------------------------------- |
+| `src`                   | `string`                       | Yes      | Remote URL to an `.epub` file.                           |
+| `initialLocation`       | `string`                       | No       | Initial CFI location (`epubcfi(...)`).                   |
+| `beginAt`               | `number`                       | No       | Initial reading progress. Supports `0-1` or `0-100`.     |
+| `waitForLocationsReady` | `boolean`                      | No       | Keep loader visible until `onLocationsReady` fires.      |
+| `onTap`                 | `() => void`                   | No       | Called on tap gesture.                                   |
+| `onSwipeLeft`           | `() => void`                   | No       | Called before built-in `goNext()`.                       |
+| `onSwipeRight`          | `() => void`                   | No       | Called before built-in `goPrevious()`.                   |
+| `onPinchStart`          | `() => void`                   | No       | Called when pinch gesture starts.                        |
+| `onPinch`               | `(e) => void`                  | No       | Called on pinch gesture.                                 |
+| `onPinchEnd`            | `() => void`                   | No       | Called when pinch gesture ends.                          |
+| `onLocationChange`      | `(data) => void`               | No       | Reading position/progress update.                        |
+| `onLocationsReady`      | `(epubKey, locations) => void` | No       | Called when locations are generated.                     |
+| `onBeginning`           | `() => void`                   | No       | Called when user reaches beginning of the book.          |
+| `onFinish`              | `() => void`                   | No       | Called when user reaches end of the book.                |
+| `onWebViewMessage`      | `(event) => void`              | No       | Receives custom WebView messages not handled internally. |
+| `LoaderComponent`       | `React.ComponentType`          | No       | Custom loading component.                                |
+
+`beginAt` is ignored when `initialLocation` is provided.
 
 ### `onLocationChange` payload
 
