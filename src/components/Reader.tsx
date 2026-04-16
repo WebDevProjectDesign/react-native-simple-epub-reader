@@ -27,6 +27,14 @@ import type {
 } from 'react-native-gesture-handler';
 import INTERNAL_EVENTS from '../constants/internalEvents';
 
+const hashString = (value: string) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) % 2147483647;
+  }
+  return hash.toString(36);
+};
+
 const Reader = ({
   src,
   onTap,
@@ -256,14 +264,24 @@ const Reader = ({
   };
 
   const epubFileName = useMemo(() => {
-    const splited = src.split('/').pop() || 'book.epub';
-    const cleanName = splited.split('?')[0] || 'book.epub';
-    const decoded = decodeURIComponent(cleanName)
-      .replace(' ', '_')
-      .replace(',', '_')
+    const sourceWithoutQuery = src.split('?')[0] || src;
+    const pathParts = sourceWithoutQuery.split('/').filter(Boolean);
+    const rawName = pathParts[pathParts.length - 1] || 'book.epub';
+    const decoded = decodeURIComponent(rawName)
+      .replace(/\s+/g, '_')
+      .replace(/,/g, '_')
       .replace(/[^a-zA-Z0-9._-]/g, '');
 
-    return decoded;
+    const hasKnownExt = /\.(epub|zip)$/i.test(decoded);
+    const baseName = hasKnownExt
+      ? decoded.replace(/\.(epub|zip)$/i, '')
+      : decoded || 'book';
+    const extension = hasKnownExt
+      ? decoded.match(/\.(epub|zip)$/i)?.[0].toLowerCase() || '.epub'
+      : '.epub';
+    const cacheScope = sourceWithoutQuery.toLowerCase();
+
+    return `${baseName}-${hashString(cacheScope)}${extension}`;
   }, [src]);
 
   const htmlTemplateName = useMemo(

@@ -11,13 +11,12 @@ export const downloadEpub = async (
       return file.uri;
     }
 
-    const normalized = url.split('?X-Goog-Algorithm')[0];
-
-    if (!normalized) {
+    if (!url) {
       throw new Error('Invalid URL provided for EPUB download.');
     }
 
-    const downloadedFile = await File.downloadFileAsync(normalized, file);
+    // Keep full URL (including query params) to support signed/private links.
+    const downloadedFile = await File.downloadFileAsync(url, file);
 
     return downloadedFile.uri;
   } catch (error) {
