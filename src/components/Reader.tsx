@@ -134,12 +134,15 @@ const Reader = ({
           setAtEnd(false);
         }
 
+        setTotalLocations(totalLocations);
         onLocationChange?.({
           totalLocations,
           currentLocation,
           progress,
           currentSection,
         });
+        setCurrentLocation(currentLocation);
+        setProgress(progress);
         break;
       case 'meta':
         const { metadata } = parsedEvent;
