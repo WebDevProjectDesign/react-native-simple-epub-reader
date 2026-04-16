@@ -48,6 +48,8 @@ const Reader = ({
   onFinish = () => {},
   onBeginning = () => {},
   onPinch = () => {},
+  onSwipeDown = () => {},
+  onSwipeUp = () => {},
   LoaderComponent,
   onWebViewMessage,
 }: ReaderProps) => {
@@ -382,6 +384,8 @@ const Reader = ({
         onPinchStart={handleOnPinchStart}
         onPinch={handleOnPinch}
         onPinchEnd={handleOnPinchEnd}
+        onSwipeUp={onSwipeUp}
+        onSwipeDown={onSwipeDown}
       >
         <WebView
           pointerEvents="none"

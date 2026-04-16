@@ -71,6 +71,8 @@ export interface GestureHandlerProps {
   onPinch?: (e: GestureUpdateEvent<PinchGestureHandlerEventPayload>) => void;
   onPinchEnd?: () => void;
   onWebViewMessage?: (event: any) => void;
+  onSwipeUp?: () => void;
+  onSwipeDown?: () => void;
 }
 
 export type ReaderProps = {
