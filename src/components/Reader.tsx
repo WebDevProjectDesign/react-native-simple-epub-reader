@@ -82,6 +82,18 @@ const Reader = ({
 
   const { injectWebViewVariables } = useInjectWebViewVariables();
   const bookRef = useRef<WebView | null>(null);
+  const toSeconds = useCallback(
+    (startMs: number) => Number(((Date.now() - startMs) / 1000).toFixed(3)),
+    []
+  );
+
+  const logReader = useCallback((message: string, details?: unknown) => {
+    if (details !== undefined) {
+      console.log(`[Reader] ${message}`, details);
+      return;
+    }
+    console.log(`[Reader] ${message}`);
+  }, []);
 
   const goToProgress = useCallback((progress: number) => {
     const normalizedProgress =
@@ -116,6 +128,12 @@ const Reader = ({
       return;
     }
 
+    if (parsedEvent?.type === 'onLog') {
+      console.log('[Reader/WebView]', parsedEvent.message, parsedEvent.data);
+      onWebViewMessage?.(parsedEvent);
+      return;
+    }
+
     if (!INTERNAL_EVENTS.includes(parsedEvent?.type) && onWebViewMessage) {
       return onWebViewMessage(parsedEvent);
     }
@@ -145,6 +163,10 @@ const Reader = ({
         break;
       case 'onLocationsReady':
         const props = parsedEvent;
+        logReader('onLocationsReady event', {
+          totalLocations: props.totalLocations,
+          locationsCount: parsedEvent.locations?.length || 0,
+        });
         hasLocationsReadyRef.current = true;
         setLocations(parsedEvent.locations);
         setTotalLocations(props.totalLocations);
@@ -196,6 +218,7 @@ const Reader = ({
 
         break;
       case 'onReady':
+        logReader('onReady event');
         if (!waitForLocationsReady) {
           setIsLoading(false);
         }
@@ -204,6 +227,7 @@ const Reader = ({
         }
         break;
       case 'onDisplayError':
+        logReader('onDisplayError event', parsedEvent.reason);
         setIsLoading(false);
         console.error('Reader display error:', parsedEvent.reason);
         break;
@@ -306,27 +330,48 @@ const Reader = ({
     let isMounted = true;
 
     const prepareReader = async () => {
+      const prepareStartMs = Date.now();
+
       try {
+        logReader('start prepareReader', { src });
         setIsLoading(true);
         setTemplateUri('');
         hasAppliedBeginAtRef.current = false;
         hasPersistedLocationsRef.current = false;
         hasLocationsReadyRef.current = false;
 
+        logReader('start loading scripts');
+        const loadScriptsStartMs = Date.now();
         const [, jszip, epubjs] = await loadScripts();
+        logReader('end loading scripts', {
+          durationSeconds: toSeconds(loadScriptsStartMs),
+        });
 
         if (!jszip || !epubjs) throw new Error('Failed to load scripts');
 
+        logReader('start downloading ebook file', { epubFileName });
+        const downloadStartMs = Date.now();
         const localEpubUri = await downloadEpub(src, epubFileName);
+        logReader('end downloading ebook file', {
+          localEpubUri,
+          durationSeconds: toSeconds(downloadStartMs),
+        });
 
         templateAssetsRef.current = { jszip, epubjs, localEpubUri };
 
         if (checkTemplateFileExists(htmlTemplateName)) {
+          logReader('using cached html template', { htmlTemplateName });
           if (isMounted) {
             setTemplateUri(getTemplateFileUri(htmlTemplateName));
           }
+          logReader('end prepareReader (cache hit)', {
+            durationSeconds: toSeconds(prepareStartMs),
+          });
           return;
         }
+
+        logReader('start generating html template');
+        const templateGenerateStartMs = Date.now();
 
         const generatedTemplate = injectWebViewVariables({
           jszip,
@@ -337,12 +382,29 @@ const Reader = ({
           theme: initialTheme,
         });
 
+        logReader('end generating html template', {
+          durationSeconds: toSeconds(templateGenerateStartMs),
+        });
+        logReader('start saving html template file', { htmlTemplateName });
+        const saveTemplateStartMs = Date.now();
+
         const uri = saveTemplateToFile(generatedTemplate, htmlTemplateName);
+        logReader('end saving html template file', {
+          uri,
+          durationSeconds: toSeconds(saveTemplateStartMs),
+        });
 
         if (isMounted) {
           setTemplateUri(uri);
         }
+        logReader('end prepareReader', {
+          durationSeconds: toSeconds(prepareStartMs),
+        });
       } catch (error) {
+        logReader('prepareReader failed', {
+          error,
+          durationSeconds: toSeconds(prepareStartMs),
+        });
         console.error('Reader Error:', error);
         if (isMounted) {
           setIsLoading(false);
@@ -359,7 +421,9 @@ const Reader = ({
     htmlTemplateName,
     epubFileName,
     injectWebViewVariables,
+    logReader,
     setIsLoading,
+    toSeconds,
   ]);
 
   if (!templateUri) {

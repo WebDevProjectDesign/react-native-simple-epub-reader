@@ -20,7 +20,8 @@ const Login = ({
 
     if (response.ok) {
       const data = await response.json();
-      console.log('Login successful:', data);
+      // console.log('Login sucxcessful:', data);
+      console.log('Login successful');
       setToken(data.token);
     }
   };

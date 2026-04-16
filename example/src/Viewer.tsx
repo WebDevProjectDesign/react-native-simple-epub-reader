@@ -22,7 +22,7 @@ const Viewer = ({ token }: { token: string }) => {
 
   const fetchSegment = useCallback(async () => {
     const response = await fetch(
-      `https://api.rtck.pl/api/v1/product-segments/${1331}`,
+      `https://api.rtck.pl/api/v1/product-segments/${418}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -45,7 +45,7 @@ const Viewer = ({ token }: { token: string }) => {
     if (!token) return;
     fetchSegment();
   }, [token, fetchSegment]);
-  console.log(segment);
+
   if (!segment) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

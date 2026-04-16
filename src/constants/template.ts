@@ -56,9 +56,55 @@ export default `
       const allowScriptedContent = window.allowScriptedContent || false;
       const allowPopups = window.allowPopups || false;
       const LOCATION_GENERATION_CHARS = 2800;
+      const reactNativeWebview = window.ReactNativeWebView !== undefined && window.ReactNativeWebView!== null ? window.ReactNativeWebView: window;
+      const timers = {};
+
+      function nowMs() {
+        if (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') {
+          return performance.now();
+        }
+        return Date.now();
+      }
+
+      function secondsSince(startMs) {
+        return Number(((nowMs() - startMs) / 1000).toFixed(3));
+      }
+
+      function emitLog(message, data) {
+        try {
+          console.log('[ReaderTemplate]', message, data || '');
+          reactNativeWebview.postMessage(JSON.stringify({
+            type: 'onLog',
+            message: message,
+            data: data || null,
+          }));
+        } catch (error) {
+          console.log('[ReaderTemplate] failed to emit log', error);
+        }
+      }
+
+      function startTimer(name, message, data) {
+        timers[name] = nowMs();
+        emitLog(message, data);
+      }
+
+      function endTimer(name, message, data) {
+        const startMs = timers[name];
+        const durationSeconds = typeof startMs === 'number' ? secondsSince(startMs) : null;
+        emitLog(message, {
+          ...(data || {}),
+          durationSeconds,
+        });
+      }
+
+      emitLog('template boot', {
+        type: type,
+        hasFile: !!file,
+        hasInitialLocations: !!(initialLocations && initialLocations.length),
+      });
 
       if (!file) {
-        const reactNativeWebview = window.ReactNativeWebView !== undefined && window.ReactNativeWebView !== null ? window.ReactNativeWebView : window;
+        emitLog('book file missing');
         reactNativeWebview.postMessage(JSON.stringify({
           type: "onDisplayError",
           reason: "Book file is missing"
@@ -66,17 +112,20 @@ export default `
       }
 
       if (type === 'epub' || type === 'opf' || type === 'binary') {
+        emitLog('creating ePub book instance', { inputType: type });
         book = ePub(file);
       } else if (type === 'base64') {
+        emitLog('creating ePub book instance', { inputType: type });
         book = ePub(file, { encoding: "base64" });
       } else {
-        const reactNativeWebview = window.ReactNativeWebView !== undefined && window.ReactNativeWebView !== null ? window.ReactNativeWebView : window;
+        emitLog('invalid book type', { inputType: type });
         reactNativeWebview.postMessage(JSON.stringify({
           type: "onDisplayError",
           reason: "Missing or invalid file type"
         }));
       }
 
+      startTimer('renderTo', 'start rendition.renderTo');
       rendition = book.renderTo("viewer", {
         width: "100%",
         height: "100%",
@@ -88,8 +137,8 @@ export default `
         allowPopups: allowPopups,
         allowScriptedContent: allowScriptedContent
       });
-      
-      const reactNativeWebview = window.ReactNativeWebView !== undefined && window.ReactNativeWebView!== null ? window.ReactNativeWebView: window;
+      endTimer('renderTo', 'end rendition.renderTo');
+
       reactNativeWebview.postMessage(JSON.stringify({ type: "onStarted" }));
 
       function flatten(chapters) {
@@ -169,14 +218,21 @@ export default `
         });
       }
 
+      startTimer('bookReadyToDisplay', 'start waiting for book.ready');
       book.ready
         .then(function () {
+          endTimer('bookReadyToDisplay', 'book.ready resolved');
           if (initialLocations) {
+            emitLog('loading cached locations into book', {
+              count: initialLocations.length,
+            });
             book.locations.load(initialLocations);
           }
+          startTimer('renditionDisplay', 'start rendition.display');
           return rendition.display();
         })
         .then(function () {
+          endTimer('renditionDisplay', 'end rendition.display');
           var currentLocation = rendition.currentLocation();
 
           reactNativeWebview.postMessage(JSON.stringify({
@@ -191,6 +247,9 @@ export default `
           // Defer heavier work to let the onReady bridge message be delivered first.
           setTimeout(function () {
             if (initialLocations && initialLocations.length) {
+              emitLog('onLocationsReady from cached locations', {
+                count: initialLocations.length,
+              });
               reactNativeWebview.postMessage(JSON.stringify({
                 type: "onLocationsReady",
                 epubKey: book.key(),
@@ -203,8 +262,14 @@ export default `
               }));
             } else {
               // Larger chunk size reduces startup cost for the first locations map.
+              startTimer('locationsGenerate', 'start locations.generate', {
+                chars: LOCATION_GENERATION_CHARS,
+              });
               book.locations.generate(LOCATION_GENERATION_CHARS).then(function () {
                 var generatedLocation = rendition.currentLocation() || currentLocation;
+                endTimer('locationsGenerate', 'end locations.generate', {
+                  count: book.locations.save().length,
+                });
                 reactNativeWebview.postMessage(JSON.stringify({
                   type: "onLocationsReady",
                   epubKey: book.key(),
@@ -216,6 +281,7 @@ export default `
                     : 0,
                 }));
               }).catch(function () {
+                endTimer('locationsGenerate', 'locations.generate failed');
                 reactNativeWebview.postMessage(JSON.stringify({
                   type: "onLocationsReady",
                   epubKey: book.key(),
@@ -230,8 +296,10 @@ export default `
             book
             .coverUrl()
             .then(async (url) => {
+              startTimer('coverUrl', 'start coverUrl');
               var reader = new FileReader();
               reader.onload = () => {
+                endTimer('coverUrl', 'end coverUrl');
                 reactNativeWebview.postMessage(
                   JSON.stringify({
                     type: "meta",
@@ -250,6 +318,7 @@ export default `
               reader.readAsDataURL(await fetch(url).then((res) => res.blob()));
             })
             .catch(() => {
+              endTimer('coverUrl', 'coverUrl failed');
               reactNativeWebview.postMessage(
                 JSON.stringify({
                   type: "meta",
@@ -267,6 +336,9 @@ export default `
             });
 
             book.loaded.navigation.then(function (item) {
+              emitLog('navigation loaded', {
+                tocCount: item?.toc?.length || 0,
+              });
               reactNativeWebview.postMessage(JSON.stringify({
                 type: 'onNavigationLoaded',
                 toc: item.toc,
@@ -276,6 +348,7 @@ export default `
           }, 0);
         })
         .catch(function (err) {
+          emitLog('book.ready/display failed', err?.message || err?.toString?.());
           reactNativeWebview.postMessage(JSON.stringify({
           type: "onDisplayError",
           reason: err.message || err.toString()
