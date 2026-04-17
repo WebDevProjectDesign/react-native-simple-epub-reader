@@ -1,6 +1,6 @@
 {
   "name": "react-native-simple-epub-reader",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Simple ePub renderer for React Native",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
