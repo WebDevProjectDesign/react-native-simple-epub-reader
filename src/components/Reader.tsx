@@ -1,5 +1,5 @@
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { SourceType, type ReaderProps } from '../types';
+import { SourceType, type ReaderProps, type ePubCfi } from '../types';
 import {
   useCallback,
   useContext,
@@ -35,8 +35,17 @@ const hashString = (value: string) => {
   return hash.toString(36);
 };
 
+const sanitizeCacheSegment = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/,/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .slice(0, 80) || 'book';
+
 const Reader = ({
   src,
+  cacheKey,
   onTap,
   onSwipeLeft,
   onSwipeRight,
@@ -44,6 +53,7 @@ const Reader = ({
   beginAt,
   waitForLocationsReady = false,
   onLocationsReady = () => {},
+  onLocationsGenerated,
   onLocationChange = () => {},
   onFinish = () => {},
   onBeginning = () => {},
@@ -52,6 +62,7 @@ const Reader = ({
   onSwipeUp = () => {},
   LoaderComponent,
   onWebViewMessage,
+  onLocationsCacheMissing,
 }: ReaderProps) => {
   const [templateUri, setTemplateUri] = useState<string>('');
   const pinchStartFontSizeRef = useRef<number | null>(null);
@@ -170,33 +181,28 @@ const Reader = ({
 
         if (
           parsedEvent.locations?.length &&
-          templateAssetsRef.current &&
           !hasPersistedLocationsRef.current
         ) {
           setTimeout(() => {
-            const assets = templateAssetsRef.current;
-            if (!assets) return;
-
             try {
-              const generatedTemplateWithLocations = injectWebViewVariables({
-                jszip: assets.jszip,
-                epubjs: assets.epubjs,
-                type: SourceType.EPUB,
-                allowScriptedContent: true,
-                book: assets.localEpubUri,
-                theme: initialTheme,
-                locations: parsedEvent.locations,
-              });
-
-              saveTemplateToFile(
-                generatedTemplateWithLocations,
-                htmlTemplateName
-              );
-              hasPersistedLocationsRef.current = true;
+              persistTemplateWithLocations(parsedEvent.locations);
             } catch (persistError) {
               console.warn('Failed to persist cached locations:', persistError);
             }
           }, 0);
+        }
+
+        if (onLocationsGenerated && parsedEvent.locations?.length) {
+          Promise.resolve(
+            onLocationsGenerated({
+              cacheKey,
+              epubKey: props.epubKey,
+              locations: parsedEvent.locations,
+              src,
+            })
+          ).catch((error) => {
+            console.warn('Failed to handle onLocationsGenerated:', error);
+          });
         }
 
         break;
@@ -272,22 +278,20 @@ const Reader = ({
     const sourceWithoutQuery = src.split('?')[0] || src;
     const pathParts = sourceWithoutQuery.split('/').filter(Boolean);
     const rawName = pathParts[pathParts.length - 1] || 'book.epub';
-    const decoded = decodeURIComponent(rawName)
-      .replace(/\s+/g, '_')
-      .replace(/,/g, '_')
-      .replace(/[^a-zA-Z0-9._-]/g, '');
+    const decoded = decodeURIComponent(rawName);
 
     const hasKnownExt = /\.(epub|zip)$/i.test(decoded);
-    const baseName = hasKnownExt
+    const fallbackBaseName = hasKnownExt
       ? decoded.replace(/\.(epub|zip)$/i, '')
       : decoded || 'book';
+    const baseName = sanitizeCacheSegment(cacheKey || fallbackBaseName);
     const extension = hasKnownExt
       ? decoded.match(/\.(epub|zip)$/i)?.[0].toLowerCase() || '.epub'
       : '.epub';
-    const cacheScope = sourceWithoutQuery.toLowerCase();
+    const cacheScope = (cacheKey || sourceWithoutQuery).toLowerCase();
 
     return `${baseName}-${hashString(cacheScope)}${extension}`;
-  }, [src]);
+  }, [cacheKey, src]);
 
   const htmlTemplateName = useMemo(
     () =>
@@ -295,6 +299,27 @@ const Reader = ({
         .replace('.epub', '-template.html')
         .replace('.zip', '-template.html'),
     [epubFileName]
+  );
+
+  const persistTemplateWithLocations = useCallback(
+    (locations: ePubCfi[]) => {
+      const assets = templateAssetsRef.current;
+      if (!assets || !locations.length) return;
+
+      const generatedTemplateWithLocations = injectWebViewVariables({
+        jszip: assets.jszip,
+        epubjs: assets.epubjs,
+        type: SourceType.EPUB,
+        allowScriptedContent: true,
+        book: assets.localEpubUri,
+        theme: initialTheme,
+        locations,
+      });
+
+      saveTemplateToFile(generatedTemplateWithLocations, htmlTemplateName);
+      hasPersistedLocationsRef.current = true;
+    },
+    [htmlTemplateName, injectWebViewVariables]
   );
 
   const handleBookRef = useCallback(
@@ -327,10 +352,31 @@ const Reader = ({
         templateAssetsRef.current = { jszip, epubjs, localEpubUri };
 
         if (checkTemplateFileExists(htmlTemplateName)) {
+          hasPersistedLocationsRef.current = true;
           if (isMounted) {
             setTemplateUri(getTemplateFileUri(htmlTemplateName));
           }
           return;
+        }
+
+        let locationsFromRemoteCache: ePubCfi[] | undefined;
+
+        if (onLocationsCacheMissing) {
+          try {
+            const remoteLocations = await onLocationsCacheMissing({
+              cacheKey,
+              src,
+            });
+
+            if (Array.isArray(remoteLocations) && remoteLocations.length > 0) {
+              locationsFromRemoteCache = remoteLocations;
+            }
+          } catch (remoteCacheError) {
+            console.warn(
+              'Failed to restore locations from onLocationsCacheMissing:',
+              remoteCacheError
+            );
+          }
         }
 
         const generatedTemplate = injectWebViewVariables({
@@ -340,9 +386,14 @@ const Reader = ({
           allowScriptedContent: true,
           book: localEpubUri,
           theme: initialTheme,
+          locations: locationsFromRemoteCache,
         });
 
         const uri = saveTemplateToFile(generatedTemplate, htmlTemplateName);
+
+        if (locationsFromRemoteCache?.length) {
+          hasPersistedLocationsRef.current = true;
+        }
 
         if (isMounted) {
           setTemplateUri(uri);
@@ -364,6 +415,8 @@ const Reader = ({
     htmlTemplateName,
     epubFileName,
     injectWebViewVariables,
+    cacheKey,
+    onLocationsCacheMissing,
     setIsLoading,
   ]);
 

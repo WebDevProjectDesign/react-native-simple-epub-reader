@@ -75,16 +75,45 @@ export interface GestureHandlerProps {
   onSwipeDown?: () => void;
 }
 
-export type ReaderProps = {
+export type LocationsCacheMissingParams = {
+  cacheKey: string;
   src: string;
+};
+
+export type LocationsGeneratedData = {
+  cacheKey?: string;
+  epubKey: string;
+  locations: ePubCfi[];
+  src: string;
+};
+
+type BaseReaderProps = {
+  src: string;
+  cacheKey?: string;
   initialLocation?: string;
   beginAt?: number;
   waitForLocationsReady?: boolean;
   onLocationChange?: (data: LocationChangeData) => void;
   onLocationsReady?: (epubKey: string, locations: ePubCfi[]) => void;
+  onLocationsGenerated?: (data: LocationsGeneratedData) => void | Promise<void>;
   onFinish?: () => void;
   onBeginning?: () => void;
   LoaderComponent?: React.ComponentType;
 } & GestureHandlerProps;
+
+type ReaderPropsWithoutRemoteCache = BaseReaderProps & {
+  onLocationsCacheMissing?: undefined;
+};
+
+type ReaderPropsWithRemoteCache = BaseReaderProps & {
+  cacheKey: string;
+  onLocationsCacheMissing: (
+    params: LocationsCacheMissingParams
+  ) => Promise<ePubCfi[] | null | undefined>;
+};
+
+export type ReaderProps =
+  | ReaderPropsWithoutRemoteCache
+  | ReaderPropsWithRemoteCache;
 
 export type Flow = 'paginated' | 'scrolled-doc';

@@ -65,26 +65,58 @@ export function Viewer() {
 
 ### Props
 
-| Prop                    | Type                           | Required | Description                                              |
-| ----------------------- | ------------------------------ | -------- | -------------------------------------------------------- |
-| `src`                   | `string`                       | Yes      | Remote URL to an `.epub` file.                           |
-| `initialLocation`       | `string`                       | No       | Initial CFI location (`epubcfi(...)`).                   |
-| `beginAt`               | `number`                       | No       | Initial reading progress. Supports `0-1` or `0-100`.     |
-| `waitForLocationsReady` | `boolean`                      | No       | Keep loader visible until `onLocationsReady` fires.      |
-| `onTap`                 | `() => void`                   | No       | Called on tap gesture.                                   |
-| `onSwipeLeft`           | `() => void`                   | No       | Called before built-in `goNext()`.                       |
-| `onSwipeRight`          | `() => void`                   | No       | Called before built-in `goPrevious()`.                   |
-| `onPinchStart`          | `() => void`                   | No       | Called when pinch gesture starts.                        |
-| `onPinch`               | `(e) => void`                  | No       | Called on pinch gesture.                                 |
-| `onPinchEnd`            | `() => void`                   | No       | Called when pinch gesture ends.                          |
-| `onLocationChange`      | `(data) => void`               | No       | Reading position/progress update.                        |
-| `onLocationsReady`      | `(epubKey, locations) => void` | No       | Called when locations are generated.                     |
-| `onBeginning`           | `() => void`                   | No       | Called when user reaches beginning of the book.          |
-| `onFinish`              | `() => void`                   | No       | Called when user reaches end of the book.                |
-| `onWebViewMessage`      | `(event) => void`              | No       | Receives custom WebView messages not handled internally. |
-| `LoaderComponent`       | `React.ComponentType`          | No       | Custom loading component.                                |
+| Prop                      | Type                                                | Required | Description                                                                                                      |
+| ------------------------- | --------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| `src`                     | `string`                                            | Yes      | Remote URL to an `.epub` file.                                                                                   |
+| `cacheKey`                | `string`                                            | No\*     | Stable key for local locations cache. Required with `onLocationsCacheMissing`.                                   |
+| `initialLocation`         | `string`                                            | No       | Initial CFI location (`epubcfi(...)`).                                                                           |
+| `beginAt`                 | `number`                                            | No       | Initial reading progress. Supports `0-1` or `0-100`.                                                             |
+| `waitForLocationsReady`   | `boolean`                                           | No       | Keep loader visible until `onLocationsReady` fires.                                                              |
+| `onTap`                   | `() => void`                                        | No       | Called on tap gesture.                                                                                           |
+| `onSwipeLeft`             | `() => void`                                        | No       | Called before built-in `goNext()`.                                                                               |
+| `onSwipeRight`            | `() => void`                                        | No       | Called before built-in `goPrevious()`.                                                                           |
+| `onPinchStart`            | `() => void`                                        | No       | Called when pinch gesture starts.                                                                                |
+| `onPinch`                 | `(e) => void`                                       | No       | Called on pinch gesture.                                                                                         |
+| `onPinchEnd`              | `() => void`                                        | No       | Called when pinch gesture ends.                                                                                  |
+| `onLocationChange`        | `(data) => void`                                    | No       | Reading position/progress update.                                                                                |
+| `onLocationsReady`        | `(epubKey, locations) => void`                      | No       | Called when locations are generated.                                                                             |
+| `onLocationsCacheMissing` | `({ cacheKey, src }) => Promise<locations \| null>` | No       | Called only when local locations cache is missing. Returned locations are used before local generation fallback. |
+| `onLocationsGenerated`    | `({ cacheKey, epubKey, locations, src }) => void`   | No       | Called after local locations generation, so you can persist them remotely.                                       |
+| `onBeginning`             | `() => void`                                        | No       | Called when user reaches beginning of the book.                                                                  |
+| `onFinish`                | `() => void`                                        | No       | Called when user reaches end of the book.                                                                        |
+| `onWebViewMessage`        | `(event) => void`                                   | No       | Receives custom WebView messages not handled internally.                                                         |
+| `LoaderComponent`         | `React.ComponentType`                               | No       | Custom loading component.                                                                                        |
 
 `beginAt` is ignored when `initialLocation` is provided.
+
+`cacheKey` becomes required when `onLocationsCacheMissing` is provided.
+
+### Remote locations cache
+
+Use `cacheKey` when the same book can be downloaded from changing URLs, for example signed CDN links. The reader first checks its local cache, then calls `onLocationsCacheMissing`, and only if that callback returns nothing or throws, it generates locations locally on the device.
+
+```tsx
+<Reader
+  src={signedEpubUrl}
+  cacheKey={productId}
+  onLocationsCacheMissing={async ({ cacheKey }) => {
+    const response = await fetch(
+      `https://api.example.com/books/${cacheKey}/locations`
+    );
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return Array.isArray(data.locations) ? data.locations : null;
+  }}
+  onLocationsGenerated={({ cacheKey, locations }) => {
+    void fetch(`https://api.example.com/books/${cacheKey}/locations`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locations }),
+    });
+  }}
+/>
+```
 
 ### `onLocationChange` payload
 
