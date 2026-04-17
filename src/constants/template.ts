@@ -55,7 +55,7 @@ export default `
       const enableSelection = window.enable_selection;
       const allowScriptedContent = window.allowScriptedContent || false;
       const allowPopups = window.allowPopups || false;
-      const LOCATION_GENERATION_CHARS = 300;
+      const LOCATION_GENERATION_CHARS = 1600;
       const reactNativeWebview = window.ReactNativeWebView !== undefined && window.ReactNativeWebView!== null ? window.ReactNativeWebView: window;
 
       if (!file) {
