@@ -213,6 +213,44 @@ export default `
           }
         } catch (e) {}
 
+        // The page count of a section settles only after its images and fonts
+        // have loaded (epub.js expands the view via ResizeObserver). Reading
+        // the count too early skews it by a few pages, which shows up as
+        // jumps when paging backwards across chapter boundaries.
+        function waitForSectionAssets() {
+          var waits = [];
+          try {
+            pr.getContents().forEach(function (contents) {
+              var doc = contents.document;
+              if (!doc) return;
+              if (doc.fonts && doc.fonts.ready) {
+                waits.push(Promise.resolve(doc.fonts.ready).catch(function () {}));
+              }
+              var images = doc.images || [];
+              for (var i = 0; i < images.length; i++) {
+                (function (img) {
+                  if (img.complete) return;
+                  waits.push(new Promise(function (resolve) {
+                    img.addEventListener('load', resolve, { once: true });
+                    img.addEventListener('error', resolve, { once: true });
+                  }));
+                })(images[i]);
+              }
+            });
+          } catch (e) {}
+
+          if (!waits.length) return Promise.resolve();
+
+          var timeout = new Promise(function (resolve) { setTimeout(resolve, 2500); });
+
+          return Promise.race([Promise.all(waits), timeout]).then(function () {
+            // Give epub.js a beat to observe the growth and expand the view.
+            return new Promise(function (resolve) {
+              requestAnimationFrame(function () { setTimeout(resolve, 60); });
+            });
+          });
+        }
+
         var pagesPerSection = new Array(spineItems.length).fill(0);
         var chain = Promise.resolve();
 
@@ -220,11 +258,13 @@ export default `
           if (!section.linear) return;
           chain = chain.then(function () {
             if (runId !== paginationRunId) return Promise.reject({ __cancelled: true });
-            return pr.display(section.index).then(function () {
-              var loc = pr.currentLocation();
-              pagesPerSection[section.index] =
-                (loc && loc.start && loc.start.displayed && loc.start.displayed.total) || 0;
-            });
+            return pr.display(section.index)
+              .then(waitForSectionAssets)
+              .then(function () {
+                var loc = pr.currentLocation();
+                pagesPerSection[section.index] =
+                  (loc && loc.start && loc.start.displayed && loc.start.displayed.total) || 0;
+              });
           });
         });
 

@@ -312,8 +312,8 @@ const Reader = ({
   const htmlTemplateName = useMemo(
     () =>
       epubFileName
-        .replace('.epub', '-template-v3.html')
-        .replace('.zip', '-template-v3.html'),
+        .replace('.epub', '-template-v4.html')
+        .replace('.zip', '-template-v4.html'),
     [epubFileName]
   );
 
