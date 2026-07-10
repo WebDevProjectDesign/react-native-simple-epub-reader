@@ -264,6 +264,35 @@ export default `
 
         paginationTimer = setTimeout(computePagination, typeof delay === 'number' ? delay : 500);
       }
+
+      // Changing the font size reflows the text, but epub.js keeps the old
+      // pixel scroll offset, so the visible text silently shifts and the next
+      // page turn "jumps". Anchor the reading position to a CFI captured
+      // before the first change and re-display it once the gesture settles.
+      let fontSizeSettleTimer = null;
+      let fontSizeAnchorCfi = null;
+
+      function applyFontSize(size) {
+        if (!fontSizeAnchorCfi) {
+          var loc = rendition.currentLocation();
+          if (loc && loc.start && loc.start.cfi) {
+            fontSizeAnchorCfi = loc.start.cfi;
+          }
+        }
+
+        rendition.themes.fontSize(size);
+        rendition.views().forEach(function (view) {
+          if (view.pane) view.pane.render();
+        });
+
+        if (fontSizeSettleTimer) clearTimeout(fontSizeSettleTimer);
+        fontSizeSettleTimer = setTimeout(function () {
+          var anchorCfi = fontSizeAnchorCfi;
+          fontSizeAnchorCfi = null;
+          if (anchorCfi) rendition.display(anchorCfi);
+          schedulePagination(300);
+        }, 350);
+      }
       // --- End pagination ---
 
       if (!enableSelection) {

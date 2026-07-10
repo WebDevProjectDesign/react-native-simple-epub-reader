@@ -62,11 +62,38 @@ export const useReaderState = () => {
           ...state,
           totalLocations: action.payload,
         };
-      case Actions.SET_CURRENT_LOCATION:
+      case Actions.SET_CURRENT_LOCATION: {
+        const location = action.payload;
+
+        // Self-correction: the hidden pagination rendition measures sections
+        // right after render, so late-loading images/fonts can skew a count
+        // by a page or two. The visible rendition reports the authoritative
+        // page count of the current section on every relocation - adopt it,
+        // otherwise the global page number would jump at chapter boundaries.
+        let { pagesPerSection, totalPages } = state;
+        const index = location?.start?.index;
+        const measuredTotal = location?.start?.displayed?.total || 0;
+
+        if (
+          state.isPaginationReady &&
+          measuredTotal > 0 &&
+          typeof index === 'number' &&
+          index >= 0 &&
+          index < pagesPerSection.length &&
+          pagesPerSection[index] !== measuredTotal
+        ) {
+          pagesPerSection = [...pagesPerSection];
+          pagesPerSection[index] = measuredTotal;
+          totalPages = pagesPerSection.reduce((sum, pages) => sum + pages, 0);
+        }
+
         return {
           ...state,
-          currentLocation: action.payload,
+          currentLocation: location,
+          pagesPerSection,
+          totalPages,
         };
+      }
       case Actions.SET_META:
         return {
           ...state,

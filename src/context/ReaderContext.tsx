@@ -141,8 +141,11 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
   const changeFontFamily = useCallback((fontFamily: string) => {
     book.current?.injectJavaScript(`
       if (typeof rendition !== 'undefined' && rendition) {
+        var loc = rendition.currentLocation();
+        var anchorCfi = loc && loc.start ? loc.start.cfi : null;
         rendition.themes.font('${fontFamily}');
         rendition.views().forEach(view => view.pane ? view.pane.render() : null);
+        if (anchorCfi) rendition.display(anchorCfi);
         if (typeof schedulePagination === 'function') schedulePagination(600);
       }
       true;
@@ -157,9 +160,12 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
   const changeTheme = useCallback((theme: Theme) => {
     book.current?.injectJavaScript(`
       if (typeof rendition !== 'undefined' && rendition) {
+        var loc = rendition.currentLocation();
+        var anchorCfi = loc && loc.start ? loc.start.cfi : null;
         rendition.themes.register({ theme: ${JSON.stringify(theme)} });
         rendition.themes.select('theme');
         rendition.views().forEach(view => view.pane ? view.pane.render() : null);
+        if (anchorCfi) rendition.display(anchorCfi);
         if (typeof schedulePagination === 'function') schedulePagination(600);
       }
       true;
@@ -200,7 +206,9 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
 
   const changeFontSize = useCallback((size: string) => {
     book.current?.injectJavaScript(`
-      if (typeof rendition !== 'undefined' && rendition) {
+      if (typeof applyFontSize === 'function') {
+        applyFontSize('${size}');
+      } else if (typeof rendition !== 'undefined' && rendition) {
         rendition.themes.fontSize('${size}');
         rendition.views().forEach(view => view.pane ? view.pane.render() : null);
         if (typeof schedulePagination === 'function') schedulePagination(600);
