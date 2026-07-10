@@ -87,6 +87,8 @@ const Reader = ({
     goToLocation,
     setAtEnd,
     setAtStart,
+    setPagination,
+    setIsPaginationReady,
     fontSize,
     changeFontSize,
     setIsLoading,
@@ -158,6 +160,18 @@ const Reader = ({
       case 'meta':
         const { metadata } = parsedEvent;
         setMeta(metadata);
+        break;
+      case 'onPaginationStarted':
+        setIsPaginationReady(false);
+        break;
+      case 'onPaginationReady':
+        setPagination({
+          pagesPerSection: parsedEvent.pagesPerSection,
+          totalPages: parsedEvent.totalPages,
+        });
+        break;
+      case 'onPaginationError':
+        console.warn('Reader pagination error:', parsedEvent.reason);
         break;
       case 'onLocationsReady':
         const props = parsedEvent;
@@ -293,11 +307,13 @@ const Reader = ({
     return `${baseName}-${hashString(cacheScope)}${extension}`;
   }, [cacheKey, src]);
 
+  // Bump the version suffix whenever the template script changes, so stale
+  // templates persisted on disk are regenerated instead of reused.
   const htmlTemplateName = useMemo(
     () =>
       epubFileName
-        .replace('.epub', '-template.html')
-        .replace('.zip', '-template.html'),
+        .replace('.epub', '-template-v2.html')
+        .replace('.zip', '-template-v2.html'),
     [epubFileName]
   );
 
@@ -338,6 +354,7 @@ const Reader = ({
     const prepareReader = async () => {
       try {
         setIsLoading(true);
+        setIsPaginationReady(false);
         setTemplateUri('');
         hasAppliedBeginAtRef.current = false;
         hasPersistedLocationsRef.current = false;
@@ -418,6 +435,7 @@ const Reader = ({
     cacheKey,
     onLocationsCacheMissing,
     setIsLoading,
+    setIsPaginationReady,
   ]);
 
   if (!templateUri) {

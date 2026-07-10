@@ -90,12 +90,12 @@
     "typescript": "^6.0.2"
   },
   "peerDependencies": {
+    "@expo/vector-icons": "*",
     "expo-file-system": "*",
     "react": "*",
     "react-native": "*",
     "react-native-gesture-handler": "*",
-    "react-native-webview": "*",
-    "@expo/vector-icons": "*"
+    "react-native-webview": "*"
   },
   "workspaces": [
     "example"

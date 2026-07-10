@@ -80,6 +80,15 @@ export type LocationsCacheMissingParams = {
   src: string;
 };
 
+export type PaginationData = {
+  /**
+   * Real rendered page count for every spine section (indexed by
+   * `Location.start.index`), measured for the current viewport and font.
+   */
+  pagesPerSection: number[];
+  totalPages: number;
+};
+
 export type LocationsGeneratedData = {
   cacheKey?: string;
   epubKey: string;

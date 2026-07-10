@@ -154,6 +154,28 @@ Available methods and state include:
 - `changeFontSize(fontSize)` (example: `"12pt"`)
 - `injectJavascript(script)`
 - `progress`, `currentLocation`, `locations`, `meta`, `atStart`, `atEnd`, `fontSize`
+- `currentPage`, `totalPages`, `pagesPerSection`, `isPaginationReady`
+
+### Page numbers
+
+`totalLocations` counts fixed-size (1600 chars) text chunks, not rendered
+pages, so it is not suitable for a "page X of Y" indicator. Use the real
+pagination instead:
+
+```tsx
+const { currentPage, totalPages, isPaginationReady } =
+  useContext(ReaderContext);
+
+// currentPage changes by exactly 1 on every page turn.
+// totalPages is the number of rendered pages for the current screen and font.
+```
+
+Page counts are measured in the background after the book opens (a hidden
+rendition paginates every chapter), so `isPaginationReady` is `false` for a
+moment after opening the book and after every font size, font family, theme
+or viewport change. Show `progress` (percentage) as a fallback during that
+time. Note that `totalPages` depends on screen size and font settings — this
+is inherent to reflowable EPUBs.
 
 ## Theming
 

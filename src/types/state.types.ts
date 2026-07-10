@@ -1,4 +1,11 @@
-import type { ePubCfi, Flow, Location, Section, Theme } from './index';
+import type {
+  ePubCfi,
+  Flow,
+  Location,
+  PaginationData,
+  Section,
+  Theme,
+} from './index';
 
 export enum Actions {
   CHANGE_FONT_SIZE = 'CHANGE_FONT_SIZE',
@@ -18,6 +25,8 @@ export enum Actions {
   SET_FLOW = 'SET_FLOW',
   CHANGE_THEME = 'CHANGE_THEME',
   CHANGE_FONT_FAMILY = 'CHANGE_FONT_FAMILY',
+  SET_PAGINATION = 'SET_PAGINATION',
+  SET_IS_PAGINATION_READY = 'SET_IS_PAGINATION_READY',
 }
 
 type BookPayload = {
@@ -44,6 +53,8 @@ type BookPayload = {
   [Actions.SET_SECTION]: Section | null;
   [Actions.SET_FLOW]: Flow;
   [Actions.CHANGE_FONT_FAMILY]: string;
+  [Actions.SET_PAGINATION]: PaginationData;
+  [Actions.SET_IS_PAGINATION_READY]: boolean;
 };
 
 type ActionMap<M extends { [index: string]: unknown }> = {
@@ -79,6 +90,9 @@ export type InitialState = {
   };
   progress: number;
   locations: ePubCfi[];
+  pagesPerSection: number[];
+  totalPages: number;
+  isPaginationReady: boolean;
   isLoading: boolean;
   isRendering: boolean;
   section: Section | null;

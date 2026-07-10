@@ -10,7 +10,7 @@ import type { ReaderContextProps } from './types';
 import { defaultTheme } from '../constants/theme';
 import type WebView from 'react-native-webview';
 import * as webViewInjectFunctions from '../helpers/webViewInjectFunctions';
-import type { ePubCfi, Location, Theme } from '../types';
+import type { ePubCfi, Location, PaginationData, Theme } from '../types';
 import { useReaderState } from '../hooks/useReaderState';
 import { Actions } from '../types/state.types';
 
@@ -23,6 +23,8 @@ const ReaderContext = createContext<ReaderContextProps>({
   setMeta: () => {},
   setProgress: () => {},
   setLocations: () => {},
+  setPagination: () => {},
+  setIsPaginationReady: () => {},
 
   goToLocation: () => {},
   goPrevious: () => {},
@@ -54,6 +56,10 @@ const ReaderContext = createContext<ReaderContextProps>({
   },
   progress: 0,
   locations: [],
+  pagesPerSection: [],
+  totalPages: 0,
+  currentPage: 0,
+  isPaginationReady: false,
   theme: defaultTheme,
 
   injectJavascript: () => {},
@@ -113,6 +119,17 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: Actions.SET_LOCATIONS, payload: locations });
   }, []);
 
+  const setPagination = useCallback((pagination: PaginationData) => {
+    dispatch({ type: Actions.SET_PAGINATION, payload: pagination });
+  }, []);
+
+  const setIsPaginationReady = useCallback((isPaginationReady: boolean) => {
+    dispatch({
+      type: Actions.SET_IS_PAGINATION_READY,
+      payload: isPaginationReady,
+    });
+  }, []);
+
   const getLocations = useCallback(() => state.locations, [state.locations]);
 
   const getCurrentLocation = useCallback(
@@ -126,6 +143,7 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       if (typeof rendition !== 'undefined' && rendition) {
         rendition.themes.font('${fontFamily}');
         rendition.views().forEach(view => view.pane ? view.pane.render() : null);
+        if (typeof schedulePagination === 'function') schedulePagination(600);
       }
       true;
     `);
@@ -142,6 +160,7 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
         rendition.themes.register({ theme: ${JSON.stringify(theme)} });
         rendition.themes.select('theme');
         rendition.views().forEach(view => view.pane ? view.pane.render() : null);
+        if (typeof schedulePagination === 'function') schedulePagination(600);
       }
       true;
     `);
@@ -184,11 +203,23 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       if (typeof rendition !== 'undefined' && rendition) {
         rendition.themes.fontSize('${size}');
         rendition.views().forEach(view => view.pane ? view.pane.render() : null);
+        if (typeof schedulePagination === 'function') schedulePagination(600);
       }
       true;
     `);
     dispatch({ type: Actions.CHANGE_FONT_SIZE, payload: size });
   }, []);
+
+  const currentPage = useMemo(() => {
+    if (!state.isPaginationReady || !state.currentLocation) return 0;
+
+    const { index, displayed } = state.currentLocation.start;
+    const pagesBeforeSection = state.pagesPerSection
+      .slice(0, index)
+      .reduce((sum, pages) => sum + pages, 0);
+
+    return pagesBeforeSection + (displayed?.page || 1);
+  }, [state.isPaginationReady, state.currentLocation, state.pagesPerSection]);
 
   const contextValue = useMemo(
     () => ({
@@ -207,6 +238,8 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       setMeta,
       setProgress,
       setLocations,
+      setPagination,
+      setIsPaginationReady,
       changeFontFamily,
       injectJavascript,
       changeFontSize,
@@ -220,6 +253,10 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       meta: state.meta,
       progress: state.progress,
       locations: state.locations,
+      pagesPerSection: state.pagesPerSection,
+      totalPages: state.totalPages,
+      currentPage,
+      isPaginationReady: state.isPaginationReady,
       isLoading: loading,
       setIsLoading: setLoading,
     }),
@@ -239,6 +276,8 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       setMeta,
       setProgress,
       setLocations,
+      setPagination,
+      setIsPaginationReady,
       changeFontFamily,
       injectJavascript,
       changeFontSize,
@@ -252,6 +291,10 @@ function ReaderProvider({ children }: { children: React.ReactNode }) {
       state.meta,
       state.progress,
       state.locations,
+      state.pagesPerSection,
+      state.totalPages,
+      currentPage,
+      state.isPaginationReady,
       loading,
       setLoading,
     ]

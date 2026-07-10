@@ -154,6 +154,118 @@ export default `
             + ')'
       }
 
+      // --- Pagination (real page counts per spine section) ---
+      // Renders each section in a hidden, identically sized rendition and
+      // reads epub.js' own page count, so results always match displayed.page.
+      // A single hidden rendition is reused across runs: destroying renditions
+      // is unsafe in epub.js (it leaves dead hooks on the shared book.spine).
+      let paginationRunId = 0;
+      let paginationTimer = null;
+      let paginationPending = false;
+      let paginationRendition = null;
+
+      function getPaginationRendition() {
+        if (paginationRendition) return paginationRendition;
+
+        var container = document.createElement('div');
+        container.style.cssText = 'position:absolute;top:0;left:-200vw;width:100vw;height:100vh;overflow:hidden;visibility:hidden;';
+        document.body.appendChild(container);
+
+        paginationRendition = book.renderTo(container, {
+          width: "100%",
+          height: "100%",
+          manager: "default",
+          flow: "auto",
+          snap: undefined,
+          spread: undefined,
+          fullsize: undefined,
+          allowPopups: allowPopups,
+          allowScriptedContent: allowScriptedContent
+        });
+
+        return paginationRendition;
+      }
+
+      function computePagination() {
+        var runId = ++paginationRunId;
+
+        var spineItems = book && book.spine && book.spine.spineItems;
+        if (!spineItems || !spineItems.length) {
+          paginationPending = false;
+          return;
+        }
+
+        var pr = getPaginationRendition();
+
+        // Mirror the visible rendition styles (theme + font size/family
+        // overrides) so both renditions paginate identically.
+        try {
+          var registeredTheme = rendition.themes._themes && rendition.themes._themes['theme'];
+          if (registeredTheme && registeredTheme.rules) {
+            pr.themes.register('theme', registeredTheme.rules);
+            pr.themes.select('theme');
+          }
+          var overrides = rendition.themes._overrides || {};
+          for (var prop in overrides) {
+            if (Object.prototype.hasOwnProperty.call(overrides, prop)) {
+              pr.themes.override(prop, overrides[prop].value, overrides[prop].priority);
+            }
+          }
+        } catch (e) {}
+
+        var pagesPerSection = new Array(spineItems.length).fill(0);
+        var chain = Promise.resolve();
+
+        spineItems.forEach(function (section) {
+          if (!section.linear) return;
+          chain = chain.then(function () {
+            if (runId !== paginationRunId) return Promise.reject({ __cancelled: true });
+            return pr.display(section.index).then(function () {
+              var loc = pr.currentLocation();
+              pagesPerSection[section.index] =
+                (loc && loc.start && loc.start.displayed && loc.start.displayed.total) || 0;
+            });
+          });
+        });
+
+        chain
+          .then(function () {
+            if (runId !== paginationRunId) return;
+            try { pr.manager && pr.manager.clear(); } catch (e) {}
+            paginationPending = false;
+
+            reactNativeWebview.postMessage(JSON.stringify({
+              type: "onPaginationReady",
+              pagesPerSection: pagesPerSection,
+              totalPages: pagesPerSection.reduce(function (sum, pages) { return sum + pages; }, 0),
+            }));
+          })
+          .catch(function (err) {
+            if ((err && err.__cancelled) || runId !== paginationRunId) return;
+            try { pr.manager && pr.manager.clear(); } catch (e) {}
+            paginationPending = false;
+
+            reactNativeWebview.postMessage(JSON.stringify({
+              type: "onPaginationError",
+              reason: err && err.message ? err.message : String(err),
+            }));
+          });
+      }
+
+      function schedulePagination(delay) {
+        // Invalidate any in-flight run so it aborts at the next section.
+        paginationRunId += 1;
+        if (paginationTimer) clearTimeout(paginationTimer);
+
+        if (!paginationPending) {
+          paginationPending = true;
+          reactNativeWebview.postMessage(JSON.stringify({ type: "onPaginationStarted" }));
+        }
+
+        paginationTimer = setTimeout(computePagination, typeof delay === 'number' ? delay : 500);
+      }
+      // --- End pagination ---
+
       if (!enableSelection) {
         rendition.themes.default({
           'body': {
@@ -199,6 +311,7 @@ export default `
                   ? book.locations.percentageFromCfi(currentLocation.start.cfi)
                   : 0,
               }));
+              schedulePagination(0);
             } else {
               // Larger chunk size reduces startup cost for the first locations map.
               book.locations.generate(LOCATION_GENERATION_CHARS).then(function () {
@@ -213,6 +326,7 @@ export default `
                     ? book.locations.percentageFromCfi(generatedLocation.start.cfi)
                     : 0,
                 }));
+                schedulePagination(0);
               }).catch(function () {
                 reactNativeWebview.postMessage(JSON.stringify({
                   type: "onLocationsReady",
@@ -222,6 +336,7 @@ export default `
                   currentLocation: currentLocation,
                   progress: 0,
                 }));
+                schedulePagination(0);
               });
             }
 
@@ -394,6 +509,9 @@ export default `
           type: 'onResized',
           layout: layout,
         }));
+
+        // Page counts are only valid for the size they were measured at.
+        schedulePagination(600);
       });
     </script>
   </body>

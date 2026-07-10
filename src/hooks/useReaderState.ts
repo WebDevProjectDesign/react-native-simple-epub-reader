@@ -26,6 +26,9 @@ export const useReaderState = () => {
     },
     progress: 0,
     locations: [],
+    pagesPerSection: [],
+    totalPages: 0,
+    isPaginationReady: false,
     isLoading: true,
     isRendering: true,
     section: null,
@@ -78,6 +81,18 @@ export const useReaderState = () => {
         return {
           ...state,
           locations: action.payload,
+        };
+      case Actions.SET_PAGINATION:
+        return {
+          ...state,
+          pagesPerSection: action.payload.pagesPerSection,
+          totalPages: action.payload.totalPages,
+          isPaginationReady: true,
+        };
+      case Actions.SET_IS_PAGINATION_READY:
+        return {
+          ...state,
+          isPaginationReady: action.payload,
         };
       case Actions.SET_IS_LOADING:
         return {

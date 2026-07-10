@@ -11642,6 +11642,7 @@ __metadata:
     turbo: "npm:^2.8.21"
     typescript: "npm:^6.0.2"
   peerDependencies:
+    "@expo/vector-icons": "*"
     expo-file-system: "*"
     react: "*"
     react-native: "*"
