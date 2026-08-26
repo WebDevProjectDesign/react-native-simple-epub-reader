@@ -2,20 +2,22 @@ import { useCallback } from 'react';
 
 import type { SourceType, Theme } from '../types';
 import template from '../constants/template';
+import jszip from '../scripts/jszip';
+import epubjs from '../scripts/epub';
+import {
+  bookPathResolverSnippet,
+  inlineScriptTag,
+} from '../helpers/webViewTemplate';
 
 export function useInjectWebViewVariables() {
   const injectWebViewVariables = useCallback(
     ({
-      jszip,
-      epubjs,
       type,
       book,
       allowScriptedContent,
       theme,
       locations,
     }: {
-      jszip: string;
-      epubjs: string;
       type: SourceType;
       book: string;
       allowScriptedContent?: boolean;
@@ -26,16 +28,15 @@ export function useInjectWebViewVariables() {
         locations && locations.length > 0 ? JSON.stringify(locations) : 'null';
 
       return template
-        .replace(
-          /<script id="jszip"><\/script>/,
-          `<script src="${jszip}"></script>`
-        )
-        .replace(
-          /<script id="epubjs"><\/script>/,
-          `<script src="${epubjs}"></script>`
+        .replace(/<script id="jszip"><\/script>/, () => inlineScriptTag(jszip))
+        .replace(/<script id="epubjs"><\/script>/, () =>
+          inlineScriptTag(epubjs)
         )
         .replace(/const type = window.type;/, `const type = '${type}';`)
-        .replace(/const file = window.book;/, `const file = '${book}';`)
+        .replace(
+          /const file = window.book;/,
+          `const file = ${bookPathResolverSnippet(book)};`
+        )
         .replace(
           /const enableSelection = window.enable_selection;/,
           `const enableSelection = false;`

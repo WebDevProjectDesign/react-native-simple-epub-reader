@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { loadScripts } from '../helpers/loadScripts';
 import {
   checkTemplateFileExists,
   getTemplateFileUri,
@@ -67,11 +66,7 @@ const Reader = ({
   const [templateUri, setTemplateUri] = useState<string>('');
   const pinchStartFontSizeRef = useRef<number | null>(null);
   const hasAppliedBeginAtRef = useRef(false);
-  const templateAssetsRef = useRef<{
-    jszip: string;
-    epubjs: string;
-    localEpubUri: string;
-  } | null>(null);
+  const hasPreparedAssetsRef = useRef(false);
   const hasPersistedLocationsRef = useRef(false);
   const hasLocationsReadyRef = useRef(false);
 
@@ -312,22 +307,21 @@ const Reader = ({
   const htmlTemplateName = useMemo(
     () =>
       epubFileName
-        .replace('.epub', '-template-v4.html')
-        .replace('.zip', '-template-v4.html'),
+        .replace('.epub', '-template-v5.html')
+        .replace('.zip', '-template-v5.html'),
     [epubFileName]
   );
 
   const persistTemplateWithLocations = useCallback(
     (locations: ePubCfi[]) => {
-      const assets = templateAssetsRef.current;
-      if (!assets || !locations.length) return;
+      if (!hasPreparedAssetsRef.current || !locations.length) return;
 
+      // Book is a file name next to the template, never an absolute container
+      // path: on iOS that path changes after every app update.
       const generatedTemplateWithLocations = injectWebViewVariables({
-        jszip: assets.jszip,
-        epubjs: assets.epubjs,
         type: SourceType.EPUB,
         allowScriptedContent: true,
-        book: assets.localEpubUri,
+        book: epubFileName,
         theme: initialTheme,
         locations,
       });
@@ -335,7 +329,7 @@ const Reader = ({
       saveTemplateToFile(generatedTemplateWithLocations, htmlTemplateName);
       hasPersistedLocationsRef.current = true;
     },
-    [htmlTemplateName, injectWebViewVariables]
+    [epubFileName, htmlTemplateName, injectWebViewVariables]
   );
 
   const handleBookRef = useCallback(
@@ -359,14 +353,10 @@ const Reader = ({
         hasAppliedBeginAtRef.current = false;
         hasPersistedLocationsRef.current = false;
         hasLocationsReadyRef.current = false;
+        hasPreparedAssetsRef.current = false;
 
-        const [, jszip, epubjs] = await loadScripts();
-
-        if (!jszip || !epubjs) throw new Error('Failed to load scripts');
-
-        const localEpubUri = await downloadEpub(src, epubFileName);
-
-        templateAssetsRef.current = { jszip, epubjs, localEpubUri };
+        await downloadEpub(src, epubFileName);
+        hasPreparedAssetsRef.current = true;
 
         if (checkTemplateFileExists(htmlTemplateName)) {
           hasPersistedLocationsRef.current = true;
@@ -397,11 +387,9 @@ const Reader = ({
         }
 
         const generatedTemplate = injectWebViewVariables({
-          jszip,
-          epubjs,
           type: SourceType.EPUB,
           allowScriptedContent: true,
-          book: localEpubUri,
+          book: epubFileName,
           theme: initialTheme,
           locations: locationsFromRemoteCache,
         });
