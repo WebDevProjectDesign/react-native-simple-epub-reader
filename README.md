@@ -67,7 +67,7 @@ export function Viewer() {
 
 | Prop                      | Type                                                | Required | Description                                                                                                      |
 | ------------------------- | --------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
-| `src`                     | `string`                                            | Yes      | Remote URL to an `.epub` file.                                                                                   |
+| `src`                     | `string`                                            | Yes      | Remote URL or local `file://` URI of an `.epub` file.                                                            |
 | `cacheKey`                | `string`                                            | No\*     | Stable key for local locations cache. Required with `onLocationsCacheMissing`.                                   |
 | `initialLocation`         | `string`                                            | No       | Initial CFI location (`epubcfi(...)`).                                                                           |
 | `beginAt`                 | `number`                                            | No       | Initial reading progress. Supports `0-1` or `0-100`.                                                             |
@@ -85,6 +85,7 @@ export function Viewer() {
 | `onBeginning`             | `() => void`                                        | No       | Called when user reaches beginning of the book.                                                                  |
 | `onFinish`                | `() => void`                                        | No       | Called when user reaches end of the book.                                                                        |
 | `onWebViewMessage`        | `(event) => void`                                   | No       | Receives custom WebView messages not handled internally.                                                         |
+| `onError`                 | `(error) => void`                                   | No       | Called when the book cannot be prepared or displayed. The reader renders nothing after a preparation error.      |
 | `LoaderComponent`         | `React.ComponentType`                               | No       | Custom loading component.                                                                                        |
 
 `beginAt` is ignored when `initialLocation` is provided.

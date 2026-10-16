@@ -107,6 +107,7 @@ type BaseReaderProps = {
   onLocationsGenerated?: (data: LocationsGeneratedData) => void | Promise<void>;
   onFinish?: () => void;
   onBeginning?: () => void;
+  onError?: (error: unknown) => void;
   LoaderComponent?: React.ComponentType;
 } & GestureHandlerProps;
 

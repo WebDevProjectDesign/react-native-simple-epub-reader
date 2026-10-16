@@ -15,6 +15,14 @@ export const downloadEpub = async (
       throw new Error('Invalid URL provided for EPUB download.');
     }
 
+    // The template loads the book by a file name next to it, so local files
+    // still have to land in the document directory.
+    if (url.startsWith('file://')) {
+      new File(url).copy(file);
+
+      return file.uri;
+    }
+
     // Keep full URL (including query params) to support signed/private links.
     const downloadedFile = await File.downloadFileAsync(url, file);
 

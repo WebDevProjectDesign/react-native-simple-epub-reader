@@ -62,8 +62,12 @@ const Reader = ({
   LoaderComponent,
   onWebViewMessage,
   onLocationsCacheMissing,
+  onError,
 }: ReaderProps) => {
   const [templateUri, setTemplateUri] = useState<string>('');
+  const [hasPrepareError, setHasPrepareError] = useState(false);
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
   const pinchStartFontSizeRef = useRef<number | null>(null);
   const hasAppliedBeginAtRef = useRef(false);
   const hasPreparedAssetsRef = useRef(false);
@@ -226,6 +230,7 @@ const Reader = ({
       case 'onDisplayError':
         setIsLoading(false);
         console.error('Reader display error:', parsedEvent.reason);
+        onError?.(parsedEvent.reason);
         break;
 
       case 'onBeginning':
@@ -350,6 +355,7 @@ const Reader = ({
         setIsLoading(true);
         setIsPaginationReady(false);
         setTemplateUri('');
+        setHasPrepareError(false);
         hasAppliedBeginAtRef.current = false;
         hasPersistedLocationsRef.current = false;
         hasLocationsReadyRef.current = false;
@@ -407,6 +413,8 @@ const Reader = ({
         console.error('Reader Error:', error);
         if (isMounted) {
           setIsLoading(false);
+          setHasPrepareError(true);
+          onErrorRef.current?.(error);
         }
       }
     };
@@ -425,6 +433,10 @@ const Reader = ({
     setIsLoading,
     setIsPaginationReady,
   ]);
+
+  if (hasPrepareError) {
+    return null;
+  }
 
   if (!templateUri) {
     return LoaderComponent ? (
